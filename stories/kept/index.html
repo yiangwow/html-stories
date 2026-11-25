@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>kept</title>
+</head>
+<body>
+<style>
+  :root{
+    --ground:#0a0608;
+    --warm:#c8c0b0;
+    --cold:#a8c4c4;
+    --chrome:#4a5a66;
+    --red:#b3251c;
+    --red-hot:#ff2a1f;
+    --amber:#d8a24a;
+    --splotch:#3d0a0a;
+    --ab:0px;
+    --splotch-o:0;
+    --splotch-t:0px;
+  }
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--ground); color:var(--warm);
+    font-family:ui-monospace,'Cascadia Mono',Menlo,Consolas,'Liberation Mono',monospace;
+    font-size:clamp(13px,2.4vw,15.5px); line-height:1.7;
+    overflow:hidden; color-scheme:dark;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--red); color:#f0e8e0}
+
+  #stage{position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; z-index:2}
+
+  #bar{
+    width:100%; box-sizing:border-box;
+    display:flex; justify-content:space-between; gap:1ch;
+    padding:10px 16px 6px; color:var(--chrome);
+    font-size:.72em; letter-spacing:.22em; text-transform:uppercase;
+    border-bottom:1px solid rgba(74,90,102,.28);
+    text-shadow:var(--ab) 0 rgba(255,42,31,.35), calc(var(--ab)*-1) 0 rgba(120,255,230,.25);
+    flex:none;
+  }
+  #bar span{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+
+  /* protocol 7 slots */
+  #slots{display:flex; gap:5px; align-items:center; flex:none}
+  .cell{
+    width:.85em; height:.85em; border:1px solid var(--chrome); box-sizing:border-box;
+  }
+  .cell.full{background:var(--amber); border-color:var(--amber); box-shadow:0 0 6px rgba(216,162,74,.5)}
+
+  #boot{
+    width:100%; max-width:72ch; box-sizing:border-box; padding:12vh 16px 0;
+    color:var(--chrome); white-space:pre-wrap;
+    text-shadow:var(--ab) 0 rgba(255,42,31,.35), calc(var(--ab)*-1) 0 rgba(120,255,230,.25);
+  }
+  #boot .flicker{color:var(--red-hot)}
+  #login{display:flex; align-items:baseline; gap:1ch; margin-top:.5em}
+  #login label{color:#5a544a}
+  #oname{
+    background:none; border:none; outline:none; color:var(--warm);
+    font:inherit; font-size:16px; caret-color:var(--warm); width:24ch;
+  }
+  #gate{display:flex; flex-direction:column; align-items:center; gap:18px; margin-top:8vh}
+  #openq{
+    background:none; border:1px solid var(--chrome); color:var(--cold);
+    font:inherit; letter-spacing:.14em; padding:10px 26px; cursor:pointer;
+  }
+  #openq:hover{border-color:var(--cold)}
+  #openq:focus-visible{outline:1px solid var(--red-hot); outline-offset:3px}
+  #gate small{color:#3a4750; letter-spacing:.08em}
+
+  #card2{
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    font-family:Georgia,'Times New Roman',serif; font-style:italic;
+    font-size:clamp(19px,4vw,28px); letter-spacing:.04em; color:#ddd6c8;
+    background:var(--ground); opacity:0; transition:opacity 1.1s ease; pointer-events:none;
+    text-align:center; padding:0 24px; z-index:30;
+  }
+  #card2.show{opacity:1}
+
+  /* ---------- utility ---------- */
+  #util{
+    width:100%; max-width:72ch; box-sizing:border-box; flex:1 1 auto; min-height:0;
+    display:flex; flex-direction:column; padding:14px 16px 12px; gap:10px;
+    text-shadow:var(--ab) 0 rgba(255,42,31,.35), calc(var(--ab)*-1) 0 rgba(120,255,230,.25);
+  }
+  #qpos{color:#7a8a92; font-size:.8em; letter-spacing:.14em; text-transform:uppercase}
+
+  #record{
+    border:1px solid rgba(74,90,102,.4); padding:14px 16px 16px; min-height:14em;
+    display:flex; flex-direction:column; gap:8px; position:relative; background:rgba(20,14,14,.35);
+  }
+  #rmeta{color:#7a8a92; font-size:.8em; letter-spacing:.06em; display:flex; justify-content:space-between; gap:1ch; flex-wrap:wrap}
+  #rsubj{color:#7a8a92}
+  #rsubj .op{color:var(--red-hot)}
+  #rbody{white-space:pre-wrap; word-break:break-word}
+  #rbody .her{color:var(--cold); font-style:italic}
+  #record.deleting{animation:delout .32s ease-in forwards}
+  @keyframes delout{
+    40%{transform:translateX(6px); opacity:.7; box-shadow:inset 0 0 0 1px var(--red)}
+    100%{transform:translateX(-14px) scaleY(.02); opacity:0}
+  }
+  #record.keeping{animation:keepin .5s ease-out 1}
+  @keyframes keepin{0%{box-shadow:inset 0 0 0 2px var(--amber)} 100%{box-shadow:none}}
+
+  #verbs{display:flex; gap:14px; align-items:center; flex-wrap:wrap}
+  .verb{
+    background:none; font:inherit; cursor:pointer; padding:8px 18px;
+    border:1px solid var(--chrome); color:var(--warm); letter-spacing:.1em; position:relative; overflow:hidden;
+    user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; touch-action:manipulation;
+  }
+  .verb:focus-visible{outline:1px solid var(--red-hot); outline-offset:3px}
+  #vdel:hover{border-color:var(--red); color:var(--red-hot)}
+  #vkeep:hover{border-color:var(--amber); color:var(--amber)}
+  .verb small{color:#5a544a; letter-spacing:0; margin-left:1ch}
+  #kfill{
+    position:absolute; left:0; top:0; bottom:0; width:0%;
+    background:rgba(216,162,74,.22); pointer-events:none;
+  }
+  #vhint{color:#8a9aa4; font-size:.8em}
+  .verb[disabled]{opacity:.35; cursor:default}
+
+  #trail{
+    flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain;
+    scrollbar-width:thin; scrollbar-color:#26303a transparent;
+    font-size:.85em; color:#4a4640; text-shadow:none;
+  }
+  #trail div{margin:0 0 .15em}
+  #trail .tdel{text-decoration:line-through; opacity:.6}
+  #trail .tkeep{color:var(--amber); opacity:.85}
+  #trail .tnote{color:#8a9aa4; font-style:italic; text-decoration:none}
+
+  /* ---------- endings ---------- */
+  #endblack{
+    position:fixed; inset:0; background:var(--ground); z-index:28; display:none;
+    align-items:center; justify-content:flex-start; flex-direction:column; gap:1.6em;
+    padding:12vh 24px 14vh; box-sizing:border-box; overflow-y:auto; overscroll-behavior:contain;
+  }
+  #endblack .after{opacity:0; transition:opacity 1.6s ease; max-width:60ch; text-align:center; white-space:pre-wrap}
+  #endblack .after .am{color:#5a6a72; font-size:.75em; letter-spacing:.1em; display:block; margin-bottom:.4em}
+  #endblack .after.her{color:var(--cold); font-style:italic}
+  #endwhite{
+    position:fixed; inset:0; background:#e8e5df; color:#1a1614; z-index:32; display:none;
+    align-items:center; justify-content:center; flex-direction:column; gap:1.2em;
+  }
+  #endwhite b{font-weight:600; letter-spacing:.06em; font-size:1.2em}
+  #endwhite span{color:#8a847a; font-size:.85em; letter-spacing:.12em}
+
+  .splotch{
+    position:fixed; width:46vmax; height:46vmax; border-radius:50%;
+    background:radial-gradient(circle, var(--splotch) 0%, rgba(61,10,10,.5) 34%, transparent 68%);
+    opacity:var(--splotch-o); pointer-events:none; z-index:1;
+    transition:opacity 3s ease, transform 3s ease;
+    animation:breathe 11s ease-in-out infinite alternate;
+  }
+  .s1{top:-26vmax; left:-20vmax; transform:translate(var(--splotch-t),var(--splotch-t))}
+  .s2{bottom:-28vmax; right:-18vmax; transform:translate(calc(var(--splotch-t)*-1),calc(var(--splotch-t)*-1))}
+  .s3{top:30%; left:-32vmax; transform:translate(var(--splotch-t),0); animation-delay:-5s}
+  @keyframes breathe{from{scale:1}to{scale:1.12}}
+
+  #scan{
+    position:fixed; inset:0; pointer-events:none; z-index:20;
+    background:repeating-linear-gradient(to bottom, rgba(0,0,0,.16) 0 1px, transparent 1px 3px);
+    mix-blend-mode:multiply;
+  }
+  #roll{
+    position:fixed; left:0; right:0; height:110px; top:-130px; pointer-events:none; z-index:21;
+    background:linear-gradient(to bottom, transparent, rgba(200,220,220,.028), transparent);
+    animation:roll 9.5s linear infinite;
+  }
+  @keyframes roll{to{transform:translateY(calc(100vh + 260px))}}
+  #vig{
+    position:fixed; inset:0; pointer-events:none; z-index:22;
+    background:radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.5) 100%);
+  }
+  body.invert{filter:invert(1) hue-rotate(180deg)}
+
+  #snd{
+    position:fixed; top:8px; right:10px; z-index:40;
+    background:none; border:none; color:#55646f; font:inherit; font-size:.7em;
+    letter-spacing:.18em; text-transform:uppercase; cursor:pointer; padding:6px;
+  }
+  #snd:hover{color:var(--chrome)}
+  #snd:focus-visible{outline:1px solid var(--chrome); outline-offset:2px}
+
+  #again{
+    position:fixed; bottom:5vh; left:0; right:0; text-align:center; z-index:35;
+    font-family:Georgia,serif; font-style:italic; color:#9a8d78; font-size:.95em;
+    cursor:pointer; opacity:0; transition:opacity 3s ease; letter-spacing:.05em;
+  }
+  #again.show{opacity:1}
+  #again.onwhite{color:#8a847a}
+  #again:focus-visible{outline:1px solid var(--chrome); outline-offset:4px}
+
+  [hidden]{display:none !important}
+
+  @media (max-width:560px){ #bclock{display:none} #bmid{display:none} }
+  @media (prefers-reduced-motion: reduce){
+    #roll{animation:none; display:none}
+    .splotch{animation:none}
+    body.invert{filter:none}
+    #record.deleting{animation:none; opacity:0}
+  }
+</style>
+
+<div id="stage">
+  <div id="bar" hidden>
+    <span>copland os enterprise</span>
+    <span id="bmid">cleanup utility 7</span>
+    <span id="slots" aria-label="memory slots"></span>
+    <span id="bclock"></span>
+  </div>
+  <div id="boot"></div>
+  <main id="util" hidden>
+    <div id="qpos"></div>
+    <section id="record" aria-live="polite">
+      <div id="rmeta"><span id="rkind"></span><span id="rsubj"></span><span id="rtime"></span></div>
+      <div id="rbody"></div>
+    </section>
+    <div id="verbs">
+      <button class="verb" id="vdel">delete <small>D</small></button>
+      <button class="verb" id="vkeep"><span id="kfill"></span>keep <small>hold K</small></button>
+      <span id="vhint" role="status"></span>
+    </div>
+    <div id="trail" aria-label="processed records" aria-live="polite" tabindex="0"></div>
+  </main>
+</div>
+<div class="splotch s1"></div><div class="splotch s2"></div><div class="splotch s3"></div>
+<div id="endblack"></div>
+<div id="endwhite"><b id="wname"></b><span>existing. unwitnessed.</span></div>
+<div id="scan"></div>
+<div id="roll" hidden></div>
+<div id="vig"></div>
+<div id="card2"></div>
+<div id="again" role="button" tabindex="0" hidden>present day. present time.</div>
+<button id="snd" hidden aria-pressed="true">sound·on</button>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const qsp = new URLSearchParams(location.search);
+const FAST = qsp.has('fast');
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const T = ms => FAST ? Math.max(8, ms/10) : ms;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const LSKEY = 'kept.record';
+const L14KEY = 'layer14.record';
+const HOLD_MS = FAST ? 600 : 3000;
+
+const S = {
+  op:'', cadence:[], kept:[], deleted:[], queue:[],
+  lingerStart:0, lingerBest:{id:0, ms:0}, fastDeletes:0, scolded:false,
+  phase:'boot', ended:false, choosing:false,
+};
+
+/* =============== audio =============== */
+const Snd = {
+  ctx:null, on:true, master:null, humGain:null, lp:null, partials:[], cadT:[], gone:false,
+  init(){
+    if (this.ctx) return;
+    try {
+      const C = new (window.AudioContext || window.webkitAudioContext)();
+      this.ctx = C;
+      this.master = C.createGain(); this.master.gain.value = 1; this.master.connect(C.destination);
+      this.lp = C.createBiquadFilter(); this.lp.type='lowpass'; this.lp.frequency.value = 720; this.lp.Q.value = .6;
+      this.humGain = C.createGain(); this.humGain.gain.value = 0;
+      this.lp.connect(this.humGain); this.humGain.connect(this.master);
+      [[100,.5],[150,.22],[250,.12],[350,.055]].forEach(([f,g]) => this.addPartial(f,g,.4));
+      const lfo = C.createOscillator(), lg = C.createGain();
+      lfo.frequency.value = .08; lg.gain.value = .022;
+      lfo.connect(lg); lg.connect(this.humGain.gain); lfo.start();
+      this.humGain.gain.setTargetAtTime(.15, C.currentTime, 2.5);
+    } catch(e) { this.ctx = null; }
+  },
+  addPartial(f, g, det){
+    const C = this.ctx; if (!C) return;
+    for (const d of [0, det]) {
+      const o = C.createOscillator(), og = C.createGain();
+      o.type='sine'; o.frequency.value = f + d;
+      og.gain.value = d ? g*.45 : g;
+      o.connect(og); og.connect(this.lp); o.start();
+      this.partials.push({o, og, f});
+    }
+  },
+  tick(){
+    const C = this.ctx; if (!C || !this.on || S.ended) return;
+    const n = C.createBufferSource();
+    n.buffer = this.tb || (this.tb = (()=>{
+      const b = C.createBuffer(1, C.sampleRate*.03, C.sampleRate), dd = b.getChannelData(0);
+      for (let i=0;i<dd.length;i++) dd[i] = (Math.random()*2-1) * (1 - i/dd.length);
+      return b;
+    })());
+    const bp = C.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value = 2100; bp.Q.value = 2.2;
+    const g = C.createGain();
+    n.connect(bp); bp.connect(g); g.connect(this.master);
+    g.gain.setValueAtTime(0, C.currentTime); g.gain.linearRampToValueAtTime(.06, C.currentTime+.003);
+    g.gain.exponentialRampToValueAtTime(.0001, C.currentTime+.03);
+    n.start();
+  },
+  tapeStop(){
+    const C = this.ctx; if (!C || !this.on) return;
+    const o = C.createOscillator(), g = C.createGain(), f = C.createBiquadFilter();
+    o.type='sawtooth'; f.type='lowpass'; f.frequency.setValueAtTime(1200, C.currentTime);
+    o.frequency.setValueAtTime(210, C.currentTime);
+    o.frequency.exponentialRampToValueAtTime(28, C.currentTime+.34);
+    f.frequency.exponentialRampToValueAtTime(120, C.currentTime+.34);
+    o.connect(f); f.connect(g); g.connect(this.master);
+    g.gain.setValueAtTime(.11, C.currentTime);
+    g.gain.exponentialRampToValueAtTime(.0001, C.currentTime+.4);
+    o.start(); o.stop(C.currentTime+.45);
+  },
+  swell(on){
+    const C = this.ctx; if (!C) return;
+    const t = C.currentTime;
+    this.humGain.gain.cancelScheduledValues(t);
+    if (on){
+      this.humGain.gain.setTargetAtTime(.34, t, HOLD_MS/3000);
+      this.lp.frequency.setTargetAtTime(1500, t, HOLD_MS/3000);
+      if (!this.beat){
+        const o = C.createOscillator(), og = C.createGain();
+        o.type='sine'; o.frequency.value = 106.3; og.gain.value = 0;
+        o.connect(og); og.connect(this.lp); o.start();
+        this.beat = og;
+      }
+      this.beat.gain.setTargetAtTime(.2, t, HOLD_MS/3000);
+    } else {
+      this.humGain.gain.setTargetAtTime(.15, t, .5);
+      this.lp.frequency.setTargetAtTime(720, t, .5);
+      if (this.beat) this.beat.gain.setTargetAtTime(0, t, .3);
+    }
+  },
+  bell(){
+    const C = this.ctx; if (!C || !this.on) return;
+    for (const f of [660, 661.8, 990]){
+      const o = C.createOscillator(), g = C.createGain();
+      o.type='sine'; o.frequency.value = f;
+      o.connect(g); g.connect(this.master);
+      g.gain.setValueAtTime(0, C.currentTime);
+      g.gain.linearRampToValueAtTime(f>900?.02:.05, C.currentTime+.01);
+      g.gain.exponentialRampToValueAtTime(.0001, C.currentTime+1.4);
+      o.start(); o.stop(C.currentTime+1.5);
+    }
+  },
+  cadence(intervals){
+    const C = this.ctx; if (!C || !this.on || intervals.length < 3) return;
+    this.stopCadence();
+    this.humGain.gain.setTargetAtTime(.05, C.currentTime, .4);
+    let t = 0;
+    for (const iv of intervals.slice(0,20)){
+      t += Math.min(iv, 800)/1000;
+      this.cadT.push(setTimeout(()=>this.tick(), t*1000));
+    }
+    this.cadT.push(setTimeout(()=>{ if (this.humGain && !S.ended) this.humGain.gain.setTargetAtTime(.15, this.ctx.currentTime, .8); }, t*1000 + 500));
+  },
+  stopCadence(){
+    this.cadT.forEach(clearTimeout);
+    this.cadT = [];
+    if (this.ctx && this.humGain && !S.ended) this.humGain.gain.setTargetAtTime(.15, this.ctx.currentTime, .5);
+  },
+  drain(sec){
+    const C = this.ctx; if (!C) return;
+    const t = C.currentTime;
+    this.partials.forEach((p,i) => p.og.gain.setTargetAtTime(0, t + i*(sec/this.partials.length)*.6, 1.5));
+    this.lp.frequency.setTargetAtTime(45, t, sec*.45);
+    this.humGain.gain.setTargetAtTime(0, t + sec*.55, sec*.25);
+  },
+  dead(){
+    const C = this.ctx; if (!C) return;
+    this.gone = true;
+    this.master.gain.setValueAtTime(0, C.currentTime);   // hard cut, no fade
+  },
+  toggle(){
+    this.on = !this.on;
+    if (this.master && this.ctx && !this.gone) this.master.gain.setTargetAtTime(this.on?1:0, this.ctx.currentTime, .1);
+    $('snd').textContent = this.on ? 'sound·on' : 'sound·off';
+    $('snd').setAttribute('aria-pressed', String(this.on));
+  }
+};
+
+/* =============== atmosphere =============== */
+function setDrift(n){
+  const r = document.documentElement.style;
+  r.setProperty('--ab', (n*1.5).toFixed(2)+'px');
+  r.setProperty('--splotch-o', (n*.8).toFixed(2));
+  r.setProperty('--splotch-t', (n*13).toFixed(0)+'vmax');
+}
+async function invertFlash(){
+  if (RM){
+    const r = $('record');
+    if (r){ r.style.borderColor = 'var(--red)'; setTimeout(()=>{ r.style.borderColor=''; }, 700); }
+    return;
+  }
+  document.body.classList.add('invert'); await sleep(64);
+  document.body.classList.remove('invert');
+}
+async function showCard(text, hold=2600){
+  const c = $('card2');
+  c.textContent = text;
+  c.classList.add('show');
+  await sleep(T(hold));
+  c.classList.remove('show');
+  await sleep(T(1150));
+}
+
+/* =============== records =============== */
+/* RECORDS_STATIC is spliced in from the writers' room — slots 1-12, 16, 17. */
+const RECORDS_STATIC = [
+  {
+    "slot": 1,
+    "kind": "chat log",
+    "timestamp": "22:47",
+    "body": "<sparrow9> the bent-ear cat came back\n<mgn_dl> three nights running. she's yours now, rule of three\n<sparrow9> named her Modem. she yells at the router til it blinks\n<mgn_dl> perfect name\n<sparrow9> she's asleep on my exam notes. leaving her there forever",
+    "her_voice": true
+  },
+  {
+    "slot": 2,
+    "kind": "purchase log",
+    "timestamp": "07:51",
+    "body": "CONBINI #114 — melon bread ×1, strawberry milk ×2, AAA batteries ×4. points card scanned: member since spring. cashier memo: regular, mornings. buys two milks, drinks one, pockets the other.",
+    "her_voice": false
+  },
+  {
+    "slot": 3,
+    "kind": "diary entry",
+    "timestamp": "23:10",
+    "body": "papa fixed the squeak in the third stair without telling anyone. i keep stepping on it expecting the sound and it's just quiet now. weird to miss a noise. wrote it down so i don't forget it existed.",
+    "her_voice": true
+  },
+  {
+    "slot": 4,
+    "kind": "voicemail transcript",
+    "timestamp": "Sun 19:12",
+    "body": "[0:31] it's me. i learned the dumpling thing — the pleats finally look like yours. seven folds. hi to the plum tree. call me on the house line, mama says my minutes cost the moon. ok. bye. ok bye.",
+    "her_voice": true
+  },
+  {
+    "slot": 5,
+    "kind": "navi board post",
+    "timestamp": "02:19",
+    "body": "/static/ — new thread by sparrow9\ndoes anyone else hear the power lines change pitch around 2am? not louder. more attentive. i stood under the pylon by the river and it felt like being read. not scary — like a library. asking seriously",
+    "her_voice": true
+  },
+  {
+    "slot": 6,
+    "kind": "sensor log",
+    "timestamp": "02:00",
+    "body": "SUBSTATION 4 PERIMETER — acoustic monitor\n02:00 baseline 50Hz, nominal\n02:11 anomaly: human vocal signature matched to line fundamental, sustained 194s\n02:14 noise floor −3dB during event\n02:15 vocal signature ends\n02:15 note: line audio does not return to baseline",
+    "her_voice": false
+  },
+  {
+    "slot": 7,
+    "kind": "diary entry",
+    "timestamp": "02:58",
+    "body": "couldn't sleep. went to the substation fence and hummed back at the lines. matched it. the hum sort of leaned in. i know how that sounds. it's more like the sound the house makes when someone else is home. i like knowing something's on.",
+    "her_voice": true
+  },
+  {
+    "slot": 8,
+    "kind": "chat log",
+    "timestamp": "23:58",
+    "body": "<sparrow9> theory. everything's plugged into everything. lines, routers, Modem, us\n<mgn_dl> the cat is not infrastructure\n<sparrow9> she yells at the router. she knows\n<mgn_dl> sleep\n<sparrow9> the hum doesn't. someone should keep it company",
+    "her_voice": true
+  },
+  {
+    "slot": 9,
+    "kind": "chat log",
+    "timestamp": "21:36",
+    "body": "<mgn_dl> hey who is sparrow9\n<mgn_dl> in the group but nobody remembers adding them\n<taro.exe> dead account? kick it\n<mgn_dl> there's months of logs. we talked every night apparently\n<taro.exe> so kick it\n<mgn_dl> yeah ok",
+    "her_voice": false
+  },
+  {
+    "slot": 10,
+    "kind": "school record",
+    "timestamp": "Mon 08:10",
+    "body": "HOMEROOM 2-C ATTENDANCE — Monday\nenrolled: 31. present: 31. no absences.\nnote (facilities): desk count exceeds enrollment by one. surplus desk, third row, window side. contents: one hair tie, one AAA battery. removal requested.",
+    "her_voice": false
+  },
+  {
+    "slot": 11,
+    "kind": "mail fragment",
+    "timestamp": "13:02",
+    "body": "…anyway the house is fine. one odd thing: the shop keeps adding strawberry milk to the order. neither of us drinks it. i cancel, it comes back. i pour it out and feel terrible after, no idea why. old houses. anyway — say hi to…",
+    "her_voice": false
+  },
+  {
+    "slot": 12,
+    "kind": "voicemail transcript",
+    "timestamp": "Sun 19:15",
+    "body": "[0:26] it's grandma. strange old head today — i made dumplings and pleated them in sevens, the way somebody liked. couldn't tell you who. the plum tree's blooming at nobody. anyway. come visit. bring the cat, if you have one. bye bye.",
+    "her_voice": false
+  },
+  {
+    "slot": 16,
+    "kind": "sensor log",
+    "timestamp": "03:11",
+    "body": "NAVI TERMINAL, HOME — session log\n03:11 login: sparrow9\n03:12 outbound none. inbound none. carrier hum on line, monitored 194s\n03:14 draft saved, unsent\n03:15 mic input, low confidence: \"ok. i'm listening.\"\n03:15 session open. no logout on record. uptime continues",
+    "her_voice": true
+  },
+  {
+    "slot": 17,
+    "kind": "navi board post",
+    "timestamp": "04:12",
+    "body": "to whoever sorts this — i figured someone would. it's ok. you can't keep all of it; i couldn't either. keep the boring ones. those were the true ones. and the second milk was always for whoever found this. that's you. drink it slow.",
+    "her_voice": true
+  }
+];
+
+function buildQueue(){
+  const l14 = (()=>{ try { return JSON.parse(localStorage.getItem(L14KEY)); } catch(e){ return null; } })();
+  const q = [];
+  const byId = Object.fromEntries(RECORDS_STATIC.map(r => [r.slot, r]));
+  for (let i=1;i<=12;i++) q.push({...byId[i], id:i});
+  q.push({id:13, kind:'terminal session — live', timestamp:'now', dynamic:'session'});
+  q.push({id:14, kind:'observation log', timestamp:'now', dynamic:'observed'});
+  q.push({id:15, kind:'registry notice', timestamp:'now', dynamic:'subject'});
+  q.push({...byId[16], id:16});
+  q.push({...byId[17], id:17});
+  if (l14 && l14.name){
+    q.push({id:18, kind:'terminal session — layer 14', timestamp:'on file',
+      body:`subject logged in as "${String(l14.name).slice(0,24)}". session ended: ${l14.outcome==='erased'?'record erased at subject request':'subject merged with record'}. last words on file: "${String(l14.frag||'…').slice(0,60)}"`,
+      crossover:true});
+  } else {
+    q.push({id:18, kind:'operator log — previous shift', timestamp:'yesterday',
+      body:'operator processed 19 flagged records. kept 0. shift closed early. no anomalies reported.'});
+  }
+  q.push({id:19, kind:'operator profile', timestamp:'now', dynamic:'self'});
+  return q;
+}
+function dynamicBody(rec){
+  const t = new Date();
+  const clock = String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0');
+  if (rec.dynamic === 'session'){
+    const cad = S.cadence.length >= 3 && Snd.ctx && Snd.on;
+    return `operator "${S.op}" logged in at ${S.loginClock}. local time now ${clock}. input cadence: ` + (cad ? 'on file. listen.' : 'insufficient sample.');
+  }
+  if (rec.dynamic === 'observed'){
+    const lin = S.lingerBest.ms > 3000 ? `operator lingered ${Math.round(S.lingerBest.ms/1000)}s on record ${String(S.lingerBest.id).padStart(2,'0')}. ` : '';
+    const kq = S.kept.length ? `operator preserved: "${excerpt(S.kept[0])}"` : 'operator has preserved nothing.';
+    return lin + kq;
+  }
+  if (rec.dynamic === 'subject')
+    return `subject field on remaining records updated. previous designation: insufficient. new designation: "${S.op}".`;
+  if (rec.dynamic === 'self')
+    return `operator "${S.op}". login ${S.loginClock}. records deleted: ${S.deleted.length}. records kept: ${S.kept.length} of 7. cadence on file. flagged for cleanup.`;
+  return rec.body;
+}
+function excerpt(rec){
+  const b = rec.body.replace(/\s+/g,' ');
+  return b.length > 46 ? b.slice(0,46).trim()+'…' : b;
+}
+
+/* =============== boot =============== */
+function bootLine(text, cls){
+  const d = document.createElement('div');
+  if (cls) d.className = cls;
+  if (text) d.textContent = text;
+  $('boot').appendChild(d);
+  return d;
+}
+let skipType = false;
+async function typeBoot(text, cls, cps=52){
+  const d = bootLine('', cls);
+  for (const ch of text){
+    if (skipType){ d.textContent = text; break; }
+    d.textContent += ch; await sleep(T(1000/cps));
+  }
+  return d;
+}
+function loadRec(){ try { return JSON.parse(localStorage.getItem(LSKEY)); } catch(e){ return null; } }
+function saveRec(outcome){
+  try { localStorage.setItem(LSKEY, JSON.stringify({name:S.op, outcome, kept:S.kept.map(r=>r.id), t:Date.now()})); } catch(e){}
+}
+
+async function boot(){
+  const prev = loadRec();
+  const clickSkip = ()=>{ skipType = true; };
+  addEventListener('pointerdown', clickSkip, {once:true});
+  addEventListener('keydown', clickSkip, {once:true});
+  await typeBoot('copland os enterprise', null, 30); await sleep(T(420));
+  await typeBoot('cleanup utility 7 ....... ready'); await sleep(T(240));
+  if (prev){
+    const f = bootLine('previous operator: ' + prev.name + ' — flagged', 'flicker');
+    await sleep(160); f.remove();
+    await typeBoot('operator history ........ none found'); await sleep(T(220));
+  }
+  await typeBoot('flag queue .............. 19 records'); await sleep(T(260));
+  await typeBoot('protocol 7 .............. 7 slots'); await sleep(T(300));
+  removeEventListener('pointerdown', clickSkip);
+  removeEventListener('keydown', clickSkip);
+  skipType = false;
+  // login
+  const lg = document.createElement('div');
+  lg.id = 'login';
+  lg.innerHTML = '<label for="oname">operator name:</label><input id="oname" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="24" aria-label="operator name">';
+  $('boot').appendChild(lg);
+  const inp = $('oname');
+  inp.focus();
+  let last = 0;
+  inp.addEventListener('keydown', e=>{
+    if (e.isComposing || e.keyCode === 229) return;
+    const now = performance.now();
+    if (last) S.cadence.push(Math.round(now-last));
+    last = now;
+  });
+  await new Promise(res=>{
+    inp.addEventListener('keydown', e=>{
+      if (e.isComposing || e.keyCode === 229) return;
+      if (e.key==='Enter' && inp.value.trim()) res();
+    });
+  });
+  S.op = [...inp.value.trim()].slice(0,24).join('').toLowerCase();
+  inp.disabled = true;
+  const t = new Date();
+  S.loginClock = String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0');
+  document.title = 'kept — ' + S.op;
+  await sleep(T(400));
+  await typeBoot('operator accepted.');
+  // gate (user gesture for audio, and a breath before the work)
+  await new Promise(res=>{
+    const g = document.createElement('div');
+    g.id = 'gate';
+    g.innerHTML = '<button id="openq">[ open the queue ]</button><small>headphones recommended · review precedes disposal</small>';
+    $('boot').appendChild(g);
+    $('openq').focus();
+    $('openq').addEventListener('click', ()=>{ Snd.init(); g.remove(); res(); }, {once:true});
+  });
+  await showCard('present day. present time.');
+}
+
+/* =============== queue UI =============== */
+function renderSlots(){
+  const el = $('slots');
+  el.setAttribute('aria-label', `memory slots: ${S.kept.length} of 7 held`);
+  el.innerHTML = '';
+  for (let i=0;i<7;i++){
+    const c = document.createElement('span');
+    c.className = 'cell' + (i < S.kept.length ? ' full' : '');
+    el.appendChild(c);
+  }
+}
+function trailAdd(text, cls){
+  const d = document.createElement('div');
+  d.className = cls;
+  d.textContent = text;
+  $('trail').prepend(d);
+}
+function renderRecord(rec, idx, total, subjHijack){
+  $('qpos').textContent = `record ${String(idx).padStart(2,'0')} / ${total}`;
+  $('rkind').textContent = rec.kind;
+  $('rtime').textContent = rec.timestamp;
+  const subj = $('rsubj');
+  if (subjHijack) subj.innerHTML = 'subject: <span class="op">' + S.op.replace(/[<>&]/g,'') + '</span>';
+  else subj.textContent = 'subject: —';
+  const body = $('rbody');
+  body.innerHTML = '';
+  const span = document.createElement('span');
+  if (rec.her_voice) span.className = 'her';
+  if (rec.dynamic && rec.body == null) rec.body = dynamicBody(rec);
+  span.textContent = rec.body;
+  body.appendChild(span);
+}
+
+/* choice: resolves 'delete' | 'keep' */
+function awaitChoice(rec){
+  return new Promise(res=>{
+    S.choosing = true;
+    const armAt = performance.now() + T(400);
+    let holdT0 = 0, raf = 0, held = null;
+    const down = {key:false, ptr:false};
+    const vk = $('vkeep'), vd = $('vdel');
+    // the final record may always be held — full memory makes room for you
+    const slotsFull = S.kept.length >= 7 && rec.id !== 19;
+    vk.disabled = false; vd.disabled = false;
+    $('vhint').textContent = slotsFull ? 'memory full. protocol 7 permits removal only.'
+      : (rec.id === 19 && S.kept.length >= 7 ? 'memory full — room will be made.' : '');
+
+    const cleanup = out => {
+      S.choosing = false;
+      removeEventListener('keydown', onDown);
+      removeEventListener('keyup', onUp);
+      vd.removeEventListener('click', onDel);
+      vk.removeEventListener('pointerdown', onPtrStart);
+      removeEventListener('pointerup', onPtrEnd);
+      removeEventListener('pointercancel', onPtrEnd);
+      removeEventListener('blur', onAbort);
+      cancelAnimationFrame(raf);
+      Snd.swell(false);
+      $('kfill').style.width = '0%';
+      res(out);
+    };
+    const onDel = ()=>{ if (performance.now() < armAt) return; cleanup('delete'); };
+    const tickHold = ()=>{
+      const p = Math.min(1, (performance.now()-holdT0)/HOLD_MS);
+      $('kfill').style.width = (p*100).toFixed(1)+'%';
+      if (p >= 1){ cleanup('keep'); return; }
+      raf = requestAnimationFrame(tickHold);
+    };
+    const startHold = src => {
+      if (held) return;
+      if (performance.now() < armAt){
+        setTimeout(()=>{ if (down[src] && !held && S.choosing) startHold(src); }, armAt - performance.now() + 20);
+        return;
+      }
+      if (slotsFull){ $('vhint').textContent = 'memory full. protocol 7 permits removal only.'; return; }
+      held = src; holdT0 = performance.now();
+      Snd.swell(true);
+      raf = requestAnimationFrame(tickHold);
+    };
+    const endHold = src => {
+      if (!held || (src && held !== src)) return;
+      held = null;
+      cancelAnimationFrame(raf);
+      Snd.swell(false);
+      $('kfill').style.width = '0%';
+      $('vhint').textContent = 'hold incomplete. record not kept.';
+    };
+    const onAbort = ()=> endHold(held);
+    const onPtrStart = e => { e.preventDefault(); down.ptr = true; startHold('ptr'); };
+    const onPtrEnd = ()=>{ down.ptr = false; endHold('ptr'); };
+    const onDown = e=>{
+      const k = e.key.toLowerCase();
+      if (k==='d' && !e.repeat) onDel();
+      if (k==='k' && !e.repeat){ down.key = true; startHold('key'); }
+    };
+    const onUp = e=>{ if (e.key.toLowerCase()==='k'){ down.key = false; endHold('key'); } };
+    addEventListener('keydown', onDown);
+    addEventListener('keyup', onUp);
+    vd.addEventListener('click', onDel);
+    vk.addEventListener('pointerdown', onPtrStart);
+    addEventListener('pointerup', onPtrEnd);
+    addEventListener('pointercancel', onPtrEnd);
+    addEventListener('blur', onAbort);
+  });
+}
+
+/* =============== main =============== */
+async function main(){
+  await boot();
+  $('boot').hidden = true;
+  $('util').hidden = false; $('bar').hidden = false; $('roll').hidden = RM; $('snd').hidden = false;
+  renderSlots();
+  const clock = ()=>{ const d = new Date(); $('bclock').textContent = String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); };
+  clock(); setInterval(clock, 20000);
+
+  S.queue = buildQueue();
+  S.phase = 'queue';
+  let subjHijack = false;
+
+  for (let i=0;i<S.queue.length;i++){
+    const rec = S.queue[i];
+    const isLast = rec.id === 19;
+    renderRecord(rec, i+1, S.queue.length, subjHijack && !isLast);
+    let cadKick = 0, cadRepeat = 0;
+    if (rec.dynamic === 'session'){
+      cadKick = setTimeout(()=>Snd.cadence(S.cadence), T(1800));
+      cadRepeat = setInterval(()=>Snd.cadence(S.cadence), 9000);
+    }
+    if (rec.dynamic === 'subject'){ await invertFlash(); subjHijack = true; setDrift(.55); }
+    if (rec.crossover){ await invertFlash(); }
+    if (isLast){
+      $('rsubj').innerHTML = 'subject: <span class="op">' + S.op.replace(/[<>&]/g,'') + '</span>';
+      $('bmid').textContent = 'final record';
+    }
+    S.lingerStart = performance.now();
+    const choice = await awaitChoice(rec);
+    if (cadKick){ clearTimeout(cadKick); clearInterval(cadRepeat); Snd.stopCadence(); }
+    const linger = performance.now() - S.lingerStart;
+    if (linger > S.lingerBest.ms && !rec.dynamic) S.lingerBest = {id:rec.id, ms:linger};
+
+    if (isLast){
+      if (choice === 'delete') return endGone();
+      return endKeptSelf();
+    }
+    if (choice === 'delete'){
+      S.deleted.push(rec);
+      Snd.tapeStop();
+      $('record').classList.add('deleting');
+      await sleep(T(340));
+      $('record').classList.remove('deleting');
+      trailAdd(`${String(rec.id).padStart(2,'0')} ${rec.kind} · deleted`, 'tdel');
+      if (linger < 1400) S.fastDeletes++; else S.fastDeletes = 0;
+      if (S.fastDeletes >= 4 && !S.scolded){
+        S.scolded = true;
+        trailAdd('notice: the operator is reminded that review precedes disposal.', 'tnote');
+        $('vhint').textContent = 'review precedes disposal.';
+      }
+    } else {
+      S.kept.push(rec);
+      Snd.bell();
+      $('record').classList.add('keeping');
+      await sleep(T(500));
+      $('record').classList.remove('keeping');
+      trailAdd(`${String(rec.id).padStart(2,'0')} ${rec.kind} · kept`, 'tkeep');
+      renderSlots();
+      $('vhint').textContent = `held ${S.kept.length} of 7`;
+    }
+    setDrift(Math.max(subjHijack ? .55 : 0, Math.min(.75, S.deleted.length/22 + (subjHijack ? .35 : 0))));
+    await sleep(T(260));
+  }
+}
+
+/* =============== endings =============== */
+async function endGone(){
+  S.ended = true;
+  saveRec('gone');
+  document.title = '​';
+  $('util').hidden = true; $('bmid').textContent = '';
+  Snd.tapeStop();
+  await sleep(T(600));
+  Snd.drain(13);
+  setDrift(0);
+  const eb = $('endblack');
+  eb.style.display = 'flex';
+  for (const rec of S.kept){
+    const d = document.createElement('div');
+    d.className = 'after' + (rec.her_voice ? ' her' : '');
+    d.innerHTML = '<span class="am">' + rec.kind.replace(/[<>&]/g,'') + ' · ' + String(rec.timestamp).replace(/[<>&]/g,'') + '</span>';
+    d.appendChild(document.createTextNode(rec.body));
+    eb.appendChild(d);
+    await sleep(T(300));
+    d.style.opacity = '1';
+    d.scrollIntoView({block:'center', behavior: RM ? 'auto' : 'smooth'});
+    await sleep(T(2600));
+    d.style.opacity = '.5';
+  }
+  await sleep(T(1200));
+  await showCard(
+    S.kept.length
+      ? `remembered in ${S.kept.length} fragment${S.kept.length===1?'':'s'}.`
+      : 'the room is clean. nothing is held.',
+    4200);
+  finale('present day. present time.', false, 6000);
+}
+async function endKeptSelf(){
+  S.ended = true;
+  saveRec('kept');
+  $('bmid').textContent = '';
+  if (S.kept.length){
+    // memory must make room for you
+    trailAdd('notice: memory full. making room.', 'tnote');
+    for (const rec of [...S.kept].reverse()){
+      await sleep(T(900));
+      Snd.tapeStop();
+      S.kept.pop();
+      renderSlots();
+      trailAdd(`${String(rec.id).padStart(2,'0')} ${rec.kind} · purged`, 'tdel');
+    }
+    await sleep(T(1200));
+  }
+  await invertFlash();
+  Snd.dead();
+  document.title = S.op;
+  $('util').hidden = true;
+  const ew = $('endwhite');
+  $('wname').textContent = S.op;
+  ew.style.display = 'flex';
+  finale('present day. present time.', true, 5000);
+}
+function finale(text, onwhite, delay){
+  const a = $('again');
+  a.textContent = text;
+  if (onwhite) a.classList.add('onwhite');
+  a.hidden = false;
+  setTimeout(()=>a.classList.add('show'), T(delay));
+  const go = ()=>location.reload();
+  a.addEventListener('click', go);
+  a.addEventListener('keydown', e=>{ if (e.key==='Enter'||e.key===' ') go(); });
+}
+
+$('snd').addEventListener('click', ()=>Snd.toggle());
+$('vkeep').addEventListener('contextmenu', e=>e.preventDefault());
+
+main();
+</script>
+
+</body>
+</html>
