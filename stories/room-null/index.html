@@ -1,0 +1,908 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#050607">
+  <title>ROOM//NULL — ambient broadcast</title>
+  <style>
+    :root {
+      --phosphor: #b9e56e;
+      --fault: #bb3d38;
+      --dust: #b8b1a1;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #050607;
+      color: var(--dust);
+    }
+
+    body {
+      font-family: "Courier New", monospace;
+      cursor: crosshair;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: 5;
+      pointer-events: none;
+    }
+
+    body::before {
+      opacity: .22;
+      background:
+        repeating-linear-gradient(
+          0deg,
+          transparent 0 2px,
+          rgba(0, 0, 0, .34) 2px 4px
+        );
+    }
+
+    body::after {
+      background: radial-gradient(circle, transparent 47%, rgba(0, 0, 0, .72) 118%);
+      box-shadow: inset 0 0 90px rgba(0, 0, 0, .66);
+    }
+
+    button {
+      font: inherit;
+    }
+
+    button:focus-visible {
+      outline: 1px solid var(--phosphor);
+      outline-offset: 7px;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    #room {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      object-fit: cover;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      background: #050607;
+      touch-action: none;
+    }
+
+    .gate {
+      position: fixed;
+      inset: 0;
+      z-index: 8;
+      display: grid;
+      place-items: center;
+      border: 0;
+      background: transparent;
+      color: rgba(213, 218, 199, .75);
+      cursor: pointer;
+      transition: opacity 1.2s ease, visibility 1.2s;
+    }
+
+    .gate span {
+      position: relative;
+      padding-top: 35px;
+      font-size: 10px;
+      letter-spacing: .18em;
+      text-transform: lowercase;
+      text-shadow: 0 0 9px rgba(185, 229, 110, .5);
+    }
+
+    .gate span::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 50%;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--fault);
+      box-shadow: 0 0 12px 3px var(--fault);
+      animation: standby 2.2s steps(2) infinite;
+    }
+
+    .gate small {
+      position: absolute;
+      right: 24px;
+      bottom: 20px;
+      color: rgba(213, 218, 199, .32);
+      font-size: 8px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    body[data-awake="true"] .gate {
+      visibility: hidden;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .osd {
+      position: fixed;
+      inset: 0;
+      z-index: 6;
+      padding: clamp(14px, 2vw, 28px);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 1.2s ease;
+    }
+
+    body[data-awake="true"] .osd {
+      opacity: 1;
+    }
+
+    .readout {
+      position: absolute;
+      top: clamp(14px, 2vw, 28px);
+      left: clamp(14px, 2vw, 28px);
+      display: flex;
+      gap: 18px;
+      align-items: center;
+      font-size: 9px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      text-shadow: 0 0 8px currentColor;
+    }
+
+    .readout::before {
+      content: "";
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--phosphor);
+      box-shadow: 0 0 8px var(--phosphor);
+    }
+
+    .channel {
+      color: var(--phosphor);
+    }
+
+    .timecode {
+      color: rgba(213, 218, 199, .52);
+    }
+
+    .mute {
+      position: absolute;
+      top: clamp(14px, 2vw, 28px);
+      right: clamp(14px, 2vw, 28px);
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: rgba(213, 218, 199, .55);
+      font-size: 9px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      pointer-events: auto;
+      cursor: pointer;
+    }
+
+    .caption {
+      position: absolute;
+      left: clamp(18px, 4vw, 64px);
+      bottom: clamp(47px, 7vh, 78px);
+      max-width: 34ch;
+      margin: 0;
+      color: rgba(229, 227, 213, .88);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(16px, 2vw, 25px);
+      font-style: italic;
+      line-height: 1.18;
+      text-shadow:
+        1px 1px 0 #050607,
+        0 0 12px rgba(0, 0, 0, .8);
+      transition: opacity .25s ease;
+    }
+
+    .caption.switching {
+      opacity: 0;
+    }
+
+    .legend {
+      position: absolute;
+      right: clamp(18px, 3vw, 44px);
+      bottom: clamp(16px, 2vw, 28px);
+      margin: 0;
+      color: rgba(213, 218, 199, .36);
+      font-size: 8px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    @keyframes standby {
+      0%,
+      55% {
+        opacity: 1;
+      }
+      56%,
+      100% {
+        opacity: .2;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .caption {
+        right: 22px;
+        bottom: 58px;
+        max-width: none;
+        font-size: 17px;
+      }
+
+      .legend {
+        right: auto;
+        left: 16px;
+        max-width: 75vw;
+      }
+
+      .readout {
+        gap: 11px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .gate,
+      .osd,
+      .caption {
+        transition: none;
+      }
+
+      .gate span::before {
+        animation: none;
+      }
+    }
+  </style>
+</head>
+<body data-awake="false">
+  <canvas id="room" width="480" height="270" aria-label="A dormant low-resolution room broadcast"></canvas>
+
+  <button class="gate" id="gate" type="button">
+    <span>touch the glass</span>
+    <small>sound after contact</small>
+  </button>
+
+  <div class="osd" aria-live="polite">
+    <div class="readout">
+      <span class="channel">CH.<span id="channelNumber">00</span> / <span id="channelName">empty room</span></span>
+      <span class="timecode" id="timecode">00:00:00</span>
+    </div>
+    <button class="mute" id="mute" type="button">[m] sound on</button>
+    <p class="caption" id="caption">The room was broadcasting before you arrived.</p>
+    <p class="legend">move to tune · click changes channel · hold stabilizes · arrows select</p>
+  </div>
+
+  <div class="sr-only" id="announcer" aria-live="polite"></div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const canvas = document.querySelector("#room");
+      const ctx = canvas.getContext("2d", { alpha: false });
+      const gate = document.querySelector("#gate");
+      const muteButton = document.querySelector("#mute");
+      const channelNumber = document.querySelector("#channelNumber");
+      const channelName = document.querySelector("#channelName");
+      const timecode = document.querySelector("#timecode");
+      const caption = document.querySelector("#caption");
+      const announcer = document.querySelector("#announcer");
+      const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      const W = canvas.width;
+      const H = canvas.height;
+      const channels = [
+        {
+          name: "empty room",
+          caption: "The room was broadcasting before you arrived.",
+          wall: "#1a1c1b",
+          dark: "#070908",
+          mid: "#5f625b",
+          light: "#b3b09f",
+          glow: "#b9e56e",
+          fault: "#a43d36",
+          hum: 43,
+          filter: 260
+        },
+        {
+          name: "weather inside",
+          caption: "Weather has crossed the wall. Do not open the window.",
+          wall: "#172129",
+          dark: "#070b0e",
+          mid: "#465e68",
+          light: "#b9b5a5",
+          glow: "#e0a85e",
+          fault: "#8e3530",
+          hum: 51,
+          filter: 520
+        },
+        {
+          name: "voice without speaker",
+          caption: "A voice is present. No speaker is present.",
+          wall: "#241719",
+          dark: "#0c0809",
+          mid: "#765f5a",
+          light: "#c6b9ac",
+          glow: "#d8c9a0",
+          fault: "#c12038",
+          hum: 46,
+          filter: 860
+        },
+        {
+          name: "machine dream",
+          caption: "The machine is dreaming in borrowed geometry.",
+          wall: "#101811",
+          dark: "#050806",
+          mid: "#36523b",
+          light: "#aeb9a5",
+          glow: "#75f293",
+          fault: "#b63b2f",
+          hum: 36,
+          filter: 1280
+        },
+        {
+          name: "afterimage",
+          caption: "The room remembers being empty. It does not remember you.",
+          wall: "#c4baaa",
+          dark: "#171217",
+          mid: "#6d6462",
+          light: "#ded5c8",
+          glow: "#8d1627",
+          fault: "#8d1627",
+          hum: 61,
+          filter: 380
+        }
+      ];
+
+      const state = {
+        awake: false,
+        channel: 0,
+        pointerX: .5,
+        pointerY: .5,
+        smoothX: .5,
+        smoothY: .5,
+        holding: false,
+        downAt: 0,
+        suppressClick: false,
+        focus: 0,
+        flash: 0,
+        startedAt: 0,
+        lastFrame: performance.now(),
+        audio: null,
+        master: null,
+        hum: [],
+        noiseFilter: null,
+        muted: false,
+        captionTimer: 0
+      };
+
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function initAudio() {
+        if (state.audio) {
+          state.audio.resume();
+          return;
+        }
+
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        state.audio = new AudioContext();
+        state.master = state.audio.createGain();
+        state.master.gain.value = .12;
+        state.master.connect(state.audio.destination);
+
+        [1, 1.5].forEach((ratio, index) => {
+          const oscillator = state.audio.createOscillator();
+          const gain = state.audio.createGain();
+          oscillator.type = index ? "triangle" : "sine";
+          oscillator.frequency.value = channels[0].hum * ratio;
+          gain.gain.value = index ? .055 : .08;
+          oscillator.connect(gain);
+          gain.connect(state.master);
+          oscillator.start();
+          state.hum.push({ oscillator, gain, ratio });
+        });
+
+        const buffer = state.audio.createBuffer(1, state.audio.sampleRate * 2, state.audio.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let index = 0; index < data.length; index += 1) {
+          data[index] = Math.random() * 2 - 1;
+        }
+        const noise = state.audio.createBufferSource();
+        state.noiseFilter = state.audio.createBiquadFilter();
+        const noiseGain = state.audio.createGain();
+        noise.buffer = buffer;
+        noise.loop = true;
+        state.noiseFilter.type = "bandpass";
+        state.noiseFilter.frequency.value = channels[0].filter;
+        state.noiseFilter.Q.value = 1.2;
+        noiseGain.gain.value = .045;
+        noise.connect(state.noiseFilter);
+        state.noiseFilter.connect(noiseGain);
+        noiseGain.connect(state.master);
+        noise.start();
+      }
+
+      function retuneAudio() {
+        if (!state.audio) return;
+        const now = state.audio.currentTime;
+        const channel = channels[state.channel];
+        state.hum.forEach(({ oscillator, ratio }) => {
+          oscillator.frequency.cancelScheduledValues(now);
+          oscillator.frequency.linearRampToValueAtTime(channel.hum * ratio, now + .7);
+        });
+        state.noiseFilter.frequency.cancelScheduledValues(now);
+        state.noiseFilter.frequency.linearRampToValueAtTime(
+          channel.filter + state.pointerX * 240,
+          now + .35
+        );
+      }
+
+      function contactSound() {
+        if (!state.audio) return;
+        const now = state.audio.currentTime;
+        const oscillator = state.audio.createOscillator();
+        const gain = state.audio.createGain();
+        oscillator.type = state.channel === 3 ? "square" : "sawtooth";
+        oscillator.frequency.setValueAtTime(110 + state.channel * 37, now);
+        oscillator.frequency.exponentialRampToValueAtTime(36, now + .32);
+        gain.gain.setValueAtTime(.12, now);
+        gain.gain.exponentialRampToValueAtTime(.0001, now + .33);
+        oscillator.connect(gain);
+        gain.connect(state.master);
+        oscillator.start(now);
+        oscillator.stop(now + .34);
+      }
+
+      function updateMute() {
+        if (state.master && state.audio) {
+          state.master.gain.setTargetAtTime(state.muted ? .0001 : .12, state.audio.currentTime, .04);
+        }
+        muteButton.textContent = state.muted ? "[m] sound off" : "[m] sound on";
+      }
+
+      function formatTime(milliseconds) {
+        const total = Math.max(0, Math.floor(milliseconds / 1000));
+        const minutes = Math.floor(total / 60);
+        const seconds = total % 60;
+        const frames = Math.floor(milliseconds / (1000 / 24)) % 24;
+        return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}:${String(frames).padStart(2, "0")}`;
+      }
+
+      function setChannel(next) {
+        const normalized = (next + channels.length) % channels.length;
+        state.channel = normalized;
+        state.flash = 1;
+        channelNumber.textContent = String(normalized).padStart(2, "0");
+        channelName.textContent = channels[normalized].name;
+        caption.classList.add("switching");
+        clearTimeout(state.captionTimer);
+        state.captionTimer = setTimeout(() => {
+          caption.textContent = channels[normalized].caption;
+          caption.classList.remove("switching");
+        }, 160);
+        document.documentElement.style.setProperty("--phosphor", channels[normalized].glow);
+        document.documentElement.style.setProperty("--fault", channels[normalized].fault);
+        canvas.setAttribute("aria-label", `Low-resolution room broadcast: ${channels[normalized].name}`);
+        announcer.textContent = `Channel ${normalized}. ${channels[normalized].name}. ${channels[normalized].caption}`;
+        retuneAudio();
+        contactSound();
+      }
+
+      function polygon(points, fill, stroke) {
+        ctx.beginPath();
+        points.forEach(([x, y], index) => {
+          if (index === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.closePath();
+        if (fill) {
+          ctx.fillStyle = fill;
+          ctx.fill();
+        }
+        if (stroke) {
+          ctx.strokeStyle = stroke;
+          ctx.stroke();
+        }
+      }
+
+      function drawRain(channel, time, px) {
+        const windowX = 31 + px * .35;
+        const windowY = 39;
+        const windowW = 134;
+        const windowH = 101;
+        ctx.fillStyle = channel.dark;
+        ctx.fillRect(windowX - 4, windowY - 4, windowW + 8, windowH + 8);
+        ctx.fillStyle = state.channel === 1 ? "#243b49" : "#101414";
+        ctx.fillRect(windowX, windowY, windowW, windowH);
+
+        for (let index = 0; index < 42; index += 1) {
+          const x = windowX + ((index * 37 + time * (state.channel === 1 ? 34 : 19)) % windowW);
+          const y = windowY + ((index * 23 + time * (state.channel === 1 ? 61 : 32)) % windowH);
+          ctx.fillStyle = index % 7 === 0 ? channel.light : channel.mid;
+          ctx.globalAlpha = state.channel === 1 ? .72 : .32;
+          ctx.fillRect(Math.floor(x), Math.floor(y), 1, index % 5 + 2);
+        }
+        ctx.globalAlpha = 1;
+
+        ctx.strokeStyle = channel.mid;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(windowX, windowY, windowW, windowH);
+        ctx.fillStyle = channel.dark;
+        for (let y = windowY + 8; y < windowY + windowH; y += 12) {
+          ctx.fillRect(windowX - 2, y, windowW + 4, 3);
+        }
+
+        if (state.channel === 2) {
+          ctx.globalAlpha = .2 + state.focus * .38;
+          ctx.fillStyle = channel.light;
+          ctx.beginPath();
+          ctx.ellipse(windowX + 72, windowY + 46, 11, 16, 0, 0, Math.PI * 2);
+          ctx.fill();
+          polygon([
+            [windowX + 54, windowY + 101],
+            [windowX + 59, windowY + 67],
+            [windowX + 72, windowY + 60],
+            [windowX + 86, windowY + 69],
+            [windowX + 93, windowY + 101]
+          ], channel.light);
+          ctx.globalAlpha = 1;
+        }
+      }
+
+      function drawCables(channel, time, px) {
+        ctx.lineWidth = 2;
+        const cableData = [
+          [74, 0, 68, 31, 82, 45],
+          [238, 0, 230, 38, 252, 72],
+          [344, 0, 358, 42, 329, 94],
+          [424, 0, 402, 52, 438, 111]
+        ];
+        cableData.forEach((cable, index) => {
+          const sway = reducedMotion ? 0 : Math.sin(time * .5 + index) * 3;
+          ctx.beginPath();
+          ctx.moveTo(cable[0] + px * .2, cable[1]);
+          ctx.bezierCurveTo(
+            cable[0] + sway,
+            cable[3] * .55,
+            cable[2] - sway,
+            cable[3],
+            cable[4] + px * .1,
+            cable[5]
+          );
+          ctx.strokeStyle = index === 2 && state.channel === 3 ? channel.glow : channel.dark;
+          ctx.stroke();
+        });
+      }
+
+      function drawMonitor(channel, time, px, py) {
+        const x = 284 + px * .7;
+        const y = 112 + py * .25;
+        const focusPush = state.focus * 3;
+
+        ctx.fillStyle = channel.dark;
+        ctx.fillRect(x - 9 - focusPush, y - 9 - focusPush, 83 + focusPush * 2, 59 + focusPush * 2);
+        polygon([
+          [x, y],
+          [x + 62, y],
+          [x + 67, y + 42],
+          [x + 56, y + 49],
+          [x + 4, y + 48],
+          [x - 3, y + 39]
+        ], channel.mid, channel.light);
+        ctx.fillStyle = channel.dark;
+        ctx.fillRect(x + 5, y + 5, 51, 32);
+
+        const screenGlow = ctx.createRadialGradient(x + 30, y + 20, 1, x + 30, y + 20, 31);
+        screenGlow.addColorStop(0, channel.glow);
+        screenGlow.addColorStop(.46, channel.glow);
+        screenGlow.addColorStop(1, channel.dark);
+        ctx.globalAlpha = .42 + state.focus * .4;
+        ctx.fillStyle = screenGlow;
+        ctx.fillRect(x + 7, y + 7, 47, 28);
+        ctx.globalAlpha = 1;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x + 7, y + 7, 47, 28);
+        ctx.clip();
+        ctx.strokeStyle = channel.glow;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let sx = 0; sx <= 47; sx += 1) {
+          const wave = Math.sin(sx * (.23 + state.pointerX * .31) + time * 4.2);
+          const sy = y + 21 + wave * (3 + state.pointerY * 5);
+          if (sx === 0) ctx.moveTo(x + 7 + sx, sy);
+          else ctx.lineTo(x + 7 + sx, sy);
+        }
+        ctx.stroke();
+        if (state.channel === 3) {
+          for (let row = 0; row < 4; row += 1) {
+            for (let column = 0; column < 7; column += 1) {
+              if ((row * 7 + column + Math.floor(time * 8)) % 4 === 0) {
+                ctx.fillStyle = channel.glow;
+                ctx.fillRect(x + 9 + column * 6, y + 9 + row * 6, 2, 2);
+              }
+            }
+          }
+        }
+        ctx.restore();
+
+        ctx.fillStyle = channel.dark;
+        ctx.fillRect(x + 22, y + 49, 23, 6);
+        ctx.fillRect(x + 14, y + 55, 42, 4);
+        ctx.fillStyle = channel.fault;
+        ctx.fillRect(x + 60, y + 42, 2, 2);
+
+        return { x: x + 30, y: y + 21 };
+      }
+
+      function drawMachineDream(channel, monitor, time) {
+        if (state.channel !== 3 && state.focus < .65) return;
+        const alpha = state.channel === 3 ? .48 : state.focus * .3;
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = channel.glow;
+        ctx.lineWidth = 1;
+        const nodes = [
+          [202, 68], [241, 91], [390, 72], [423, 131],
+          [218, 181], [370, 205], [448, 221], [111, 212]
+        ];
+        nodes.forEach(([x, y], index) => {
+          ctx.beginPath();
+          ctx.moveTo(monitor.x, monitor.y);
+          ctx.lineTo(x, y);
+          ctx.stroke();
+          ctx.fillStyle = index % 3 === 0 ? channel.fault : channel.glow;
+          ctx.fillRect(x - 2, y - 2, 4, 4);
+        });
+        ctx.globalAlpha = 1;
+      }
+
+      function drawRoom(time) {
+        const channel = channels[state.channel];
+        const awake = state.awake ? 1 : .24;
+        const px = (state.smoothX - .5) * 13;
+        const py = (state.smoothY - .5) * 8;
+        const horizon = 151 + py * .25;
+
+        const wallGradient = ctx.createLinearGradient(0, 0, W, H);
+        wallGradient.addColorStop(0, channel.dark);
+        wallGradient.addColorStop(.48, channel.wall);
+        wallGradient.addColorStop(1, channel.dark);
+        ctx.fillStyle = wallGradient;
+        ctx.fillRect(0, 0, W, H);
+
+        ctx.globalAlpha = awake;
+        polygon([[0, 0], [W, 0], [W, 24], [0, 58]], channel.dark);
+        ctx.fillStyle = channel.mid;
+        ctx.globalAlpha *= .34;
+        ctx.fillRect(0, 59, W, 1);
+        ctx.fillRect(181 + px * .12, 0, 1, horizon);
+        ctx.globalAlpha = awake;
+
+        drawRain(channel, time, px);
+        drawCables(channel, time, px);
+
+        ctx.fillStyle = channel.dark;
+        ctx.fillRect(185 + px * .2, 25, 95, 6);
+        ctx.globalAlpha = .5 + state.focus * .35;
+        ctx.fillStyle = channel.light;
+        ctx.fillRect(192 + px * .2, 27, 78, 2);
+        ctx.globalAlpha = awake;
+
+        polygon([[0, horizon], [W, horizon], [W, H], [0, H]], channel.dark);
+        const vanishX = 244 + px * .4;
+        ctx.strokeStyle = channel.mid;
+        ctx.lineWidth = 1;
+        ctx.globalAlpha = .32;
+        for (let x = -70; x < W + 80; x += 38) {
+          ctx.beginPath();
+          ctx.moveTo(vanishX, horizon);
+          ctx.lineTo(x, H);
+          ctx.stroke();
+        }
+        for (let index = 1; index < 9; index += 1) {
+          const ratio = index / 9;
+          const y = horizon + Math.pow(ratio, 1.8) * (H - horizon);
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(W, y);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = awake;
+
+        ctx.fillStyle = channel.mid;
+        ctx.fillRect(214 + px * .35, 158, 184, 10);
+        ctx.fillStyle = channel.dark;
+        ctx.fillRect(220 + px * .35, 168, 8, 53);
+        ctx.fillRect(382 + px * .35, 168, 8, 53);
+        ctx.fillRect(246 + px * .35, 177, 119, 4);
+
+        ctx.strokeStyle = channel.mid;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(190 + px * .55, 186, 26, Math.PI, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = channel.dark;
+        ctx.fillRect(165 + px * .55, 184, 50, 11);
+        ctx.fillRect(184 + px * .55, 194, 6, 42);
+
+        const monitor = drawMonitor(channel, time, px, py);
+        drawMachineDream(channel, monitor, time);
+
+        ctx.globalAlpha = .17 * awake;
+        ctx.fillStyle = channel.light;
+        ctx.fillRect(408 + px * .15, 54, 43, 72);
+        ctx.fillStyle = channel.dark;
+        ctx.fillRect(412 + px * .15, 58, 35, 2);
+        ctx.fillRect(412 + px * .15, 67, 26, 2);
+        ctx.fillRect(412 + px * .15, 91, 31, 2);
+        ctx.globalAlpha = 1;
+
+        if (state.channel === 4) {
+          ctx.globalCompositeOperation = "difference";
+          ctx.globalAlpha = .22 + state.focus * .24;
+          ctx.drawImage(canvas, -3, 0);
+          ctx.globalCompositeOperation = "source-over";
+          ctx.globalAlpha = 1;
+        }
+
+        const grainCount = reducedMotion ? 90 : 290;
+        for (let index = 0; index < grainCount; index += 1) {
+          const x = (index * 97 + Math.floor(time * 31)) % W;
+          const y = (index * 53 + Math.floor(time * 17)) % H;
+          ctx.fillStyle = index % 9 === 0 ? channel.light : channel.dark;
+          ctx.globalAlpha = index % 9 === 0 ? .12 : .2;
+          ctx.fillRect(x, y, 1, 1);
+        }
+        ctx.globalAlpha = 1;
+
+        if (!state.awake) {
+          ctx.fillStyle = "rgba(0,0,0,.68)";
+          ctx.fillRect(0, 0, W, H);
+        }
+      }
+
+      function drawInterference(time) {
+        const channel = channels[state.channel];
+        const intensity = state.flash * .8 + (state.holding ? .1 : 0);
+        if (intensity <= .01 || reducedMotion) return;
+        const strips = 2 + Math.floor(intensity * 7);
+        for (let index = 0; index < strips; index += 1) {
+          const y = Math.floor((index * 73 + time * 113) % H);
+          const height = 2 + (index * 3) % 8;
+          const offset = Math.floor((Math.sin(time * 9 + index) * 10) * intensity);
+          ctx.globalAlpha = .4 * intensity;
+          ctx.drawImage(canvas, 0, y, W, height, offset, y, W, height);
+          ctx.fillStyle = index % 2 ? channel.glow : channel.fault;
+          ctx.fillRect(0, y, Math.abs(offset) + 2, 1);
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      function update(now) {
+        const dt = Math.min(.04, (now - state.lastFrame) / 1000);
+        state.lastFrame = now;
+        state.smoothX += (state.pointerX - state.smoothX) * Math.min(1, dt * 3.2);
+        state.smoothY += (state.pointerY - state.smoothY) * Math.min(1, dt * 3.2);
+        const focusTarget = state.holding ? 1 : 0;
+        state.focus += (focusTarget - state.focus) * Math.min(1, dt * 2.2);
+        state.flash = Math.max(0, state.flash - dt * 1.8);
+
+        if (state.noiseFilter && state.audio) {
+          const target = channels[state.channel].filter + state.pointerX * 330 + state.focus * 420;
+          state.noiseFilter.frequency.setTargetAtTime(target, state.audio.currentTime, .08);
+        }
+        if (state.awake) timecode.textContent = formatTime(now - state.startedAt);
+      }
+
+      function frame(now) {
+        update(now);
+        const time = now / 1000;
+        drawRoom(time);
+        drawInterference(time);
+        requestAnimationFrame(frame);
+      }
+
+      function wake() {
+        if (state.awake) return;
+        state.awake = true;
+        state.startedAt = performance.now();
+        document.body.dataset.awake = "true";
+        initAudio();
+        setChannel(0);
+        announcer.textContent = "Room broadcast active. Move to tune. Click to change channel. Hold to stabilize.";
+        canvas.focus?.();
+      }
+
+      function updatePointer(event) {
+        state.pointerX = clamp(event.clientX / innerWidth, 0, 1);
+        state.pointerY = clamp(event.clientY / innerHeight, 0, 1);
+      }
+
+      gate.addEventListener("click", (event) => {
+        event.stopPropagation();
+        wake();
+      });
+
+      canvas.addEventListener("pointermove", updatePointer);
+      canvas.addEventListener("pointerdown", (event) => {
+        updatePointer(event);
+        state.holding = true;
+        state.downAt = performance.now();
+        state.suppressClick = false;
+        canvas.setPointerCapture?.(event.pointerId);
+      });
+      canvas.addEventListener("pointerup", (event) => {
+        if (performance.now() - state.downAt > 300) state.suppressClick = true;
+        state.holding = false;
+        canvas.releasePointerCapture?.(event.pointerId);
+      });
+      canvas.addEventListener("pointercancel", () => {
+        state.holding = false;
+      });
+      canvas.addEventListener("click", () => {
+        if (state.suppressClick) {
+          state.suppressClick = false;
+          return;
+        }
+        if (state.awake) setChannel(state.channel + 1);
+      });
+
+      muteButton.addEventListener("click", () => {
+        state.muted = !state.muted;
+        updateMute();
+      });
+
+      addEventListener("keydown", (event) => {
+        if (!state.awake && (event.code === "Enter" || event.code === "Space")) {
+          event.preventDefault();
+          wake();
+          return;
+        }
+        if (!state.awake) return;
+        if (event.code === "ArrowRight" || event.code === "Space") {
+          event.preventDefault();
+          setChannel(state.channel + 1);
+        }
+        if (event.code === "ArrowLeft") {
+          event.preventDefault();
+          setChannel(state.channel - 1);
+        }
+        if (event.code === "KeyM") {
+          state.muted = !state.muted;
+          updateMute();
+        }
+        if (event.code === "ShiftLeft" || event.code === "ShiftRight") state.holding = true;
+      });
+      addEventListener("keyup", (event) => {
+        if (event.code === "ShiftLeft" || event.code === "ShiftRight") state.holding = false;
+      });
+
+      ctx.imageSmoothingEnabled = false;
+      requestAnimationFrame(frame);
+    })();
+  </script>
+</body>
+</html>

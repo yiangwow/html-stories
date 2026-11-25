@@ -1,0 +1,997 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#242c25">
+  <title>THE BUTTON IS LYING — unnecessary machinery</title>
+  <style>
+    :root {
+      --room: #242c25;
+      --casing: #cbd0c3;
+      --paper: #f1edda;
+      --ink: #11140f;
+      --red: #f33a20;
+      --orange: #ff9e1b;
+      --blue: #175cff;
+      --magenta: #b52c87;
+      --load: 0%;
+      --mx: 50%;
+      --my: 50%;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--room);
+      color: var(--ink);
+    }
+
+    body {
+      font-family: Verdana, Geneva, sans-serif;
+      background:
+        radial-gradient(circle at var(--mx) var(--my), rgba(255, 158, 27, .18), transparent 28%),
+        repeating-linear-gradient(135deg, transparent 0 14px, rgba(0, 0, 0, .08) 14px 16px),
+        var(--room);
+    }
+
+    button {
+      font: inherit;
+    }
+
+    button:focus-visible {
+      outline: 4px solid var(--blue);
+      outline-offset: 8px;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    #debris {
+      position: fixed;
+      inset: 0;
+      z-index: 5;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .bay {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      width: 100%;
+      min-height: 100vh;
+      padding: clamp(16px, 3vw, 38px);
+    }
+
+    .topline,
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      color: var(--paper);
+      font-family: "Courier New", monospace;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .17em;
+      text-transform: uppercase;
+    }
+
+    .live {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .live::before {
+      content: "";
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--orange);
+      box-shadow: 0 0 14px var(--orange);
+    }
+
+    .machine {
+      position: relative;
+      align-self: center;
+      display: grid;
+      grid-template-columns: minmax(230px, .82fr) minmax(320px, 1.2fr) minmax(210px, .72fr);
+      gap: clamp(20px, 4vw, 64px);
+      align-items: center;
+      width: min(1180px, 94vw);
+      min-height: min(650px, 76vh);
+      margin: 24px auto;
+      padding: clamp(26px, 5vw, 72px);
+      border: 3px solid var(--ink);
+      outline: 7px solid var(--casing);
+      background:
+        linear-gradient(115deg, rgba(255, 255, 255, .22), transparent 24%),
+        repeating-linear-gradient(0deg, transparent 0 5px, rgba(17, 20, 15, .025) 5px 6px),
+        var(--casing);
+      box-shadow:
+        0 28px 0 rgba(0, 0, 0, .22),
+        0 48px 90px rgba(0, 0, 0, .35),
+        inset 0 0 0 8px rgba(255, 255, 255, .18);
+      transform: rotate(var(--machine-tilt, 0deg));
+      transition: transform .45s cubic-bezier(.2, .9, .2, 1), background-color .3s;
+    }
+
+    .machine::before,
+    .machine::after {
+      content: "×";
+      position: absolute;
+      top: 13px;
+      width: 28px;
+      height: 28px;
+      border: 2px solid rgba(17, 20, 15, .55);
+      border-radius: 50%;
+      color: rgba(17, 20, 15, .6);
+      font: 700 22px/24px Arial, sans-serif;
+      text-align: center;
+      box-shadow: inset 2px 2px 4px rgba(0, 0, 0, .25);
+    }
+
+    .machine::before {
+      left: 14px;
+    }
+
+    .machine::after {
+      right: 14px;
+    }
+
+    .copy {
+      align-self: stretch;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .kicker,
+    .micro-label,
+    .ticket-label,
+    .log time,
+    .button-caption {
+      font-family: "Courier New", monospace;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    .kicker {
+      margin: 0 0 16px;
+      color: var(--blue);
+    }
+
+    h1 {
+      max-width: 8ch;
+      margin: 0;
+      font-family: Impact, "Arial Black", sans-serif;
+      font-size: clamp(58px, 7vw, 108px);
+      font-style: italic;
+      font-weight: 900;
+      letter-spacing: -.045em;
+      line-height: .78;
+      text-transform: uppercase;
+      transform: skewY(-2deg);
+    }
+
+    .instruction {
+      max-width: 29ch;
+      margin: 24px 0 0;
+      font-size: clamp(15px, 1.4vw, 19px);
+      line-height: 1.38;
+    }
+
+    .rig {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-height: 430px;
+    }
+
+    .gauge {
+      position: absolute;
+      width: min(390px, 34vw);
+      aspect-ratio: 1;
+      border: 2px solid var(--ink);
+      border-radius: 50%;
+      background:
+        radial-gradient(circle, var(--casing) 0 57%, transparent 58%),
+        conic-gradient(var(--red) var(--load), rgba(17, 20, 15, .11) 0);
+      box-shadow:
+        inset 0 0 0 10px var(--casing),
+        inset 0 0 0 12px var(--ink);
+      transition: background .3s ease;
+    }
+
+    .gauge::before {
+      content: "";
+      position: absolute;
+      inset: 5%;
+      border-radius: 50%;
+      background: repeating-conic-gradient(
+        from -4deg,
+        var(--ink) 0 1deg,
+        transparent 1deg 14.5deg
+      );
+      mask: radial-gradient(circle, transparent 0 74%, #000 75%);
+      opacity: .45;
+    }
+
+    .button-well {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      place-items: center;
+      width: clamp(190px, 20vw, 270px);
+      aspect-ratio: 1;
+      border: 6px solid var(--ink);
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 48% 45%, #505a4e 0 44%, #1a211b 45% 62%, #080b08 63%);
+      box-shadow:
+        0 16px 0 #0b0e0b,
+        0 27px 36px rgba(0, 0, 0, .45),
+        inset 0 0 0 5px rgba(255, 255, 255, .08);
+    }
+
+    .panic {
+      position: relative;
+      width: 61%;
+      aspect-ratio: 1;
+      padding: 0;
+      border: 4px solid #6b120b;
+      border-radius: 50%;
+      color: #fff;
+      background:
+        radial-gradient(circle at 36% 25%, #ff9e8f 0 5%, transparent 6%),
+        radial-gradient(circle at 38% 33%, #ff664f 0 8%, var(--red) 32%, #b91d0b 72%);
+      box-shadow:
+        0 16px 0 #75140b,
+        0 23px 28px rgba(0, 0, 0, .48),
+        inset 0 -9px 16px rgba(89, 5, 0, .35),
+        inset 0 8px 14px rgba(255, 255, 255, .25);
+      cursor: pointer;
+      transform: translateY(-8px);
+      transition: transform .08s ease, box-shadow .08s ease, filter .2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .panic:hover {
+      filter: saturate(1.18) brightness(1.04);
+    }
+
+    .panic:active,
+    .panic.pressed {
+      transform: translateY(7px) scale(.98);
+      box-shadow:
+        0 3px 0 #75140b,
+        0 7px 10px rgba(0, 0, 0, .38),
+        inset 0 -5px 12px rgba(89, 5, 0, .4);
+    }
+
+    .panic::after {
+      content: "";
+      position: absolute;
+      inset: 12%;
+      border: 1px solid rgba(255, 255, 255, .22);
+      border-radius: 50%;
+    }
+
+    .button-caption {
+      position: absolute;
+      z-index: 3;
+      bottom: 22px;
+      width: max-content;
+      max-width: 82%;
+      padding: 7px 12px;
+      border: 1px solid var(--ink);
+      background: var(--paper);
+      text-align: center;
+      transform: rotate(-1deg);
+    }
+
+    .button-caption::before,
+    .button-caption::after {
+      content: "";
+      position: absolute;
+      top: -7px;
+      width: 28px;
+      height: 12px;
+      background: rgba(255, 232, 135, .72);
+    }
+
+    .button-caption::before {
+      left: -12px;
+      transform: rotate(-5deg);
+    }
+
+    .button-caption::after {
+      right: -12px;
+      transform: rotate(7deg);
+    }
+
+    .evidence {
+      align-self: stretch;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .meter {
+      padding: 16px;
+      border: 2px solid var(--ink);
+      background: #20261f;
+      color: var(--paper);
+      box-shadow: inset 0 0 20px rgba(0, 0, 0, .55);
+    }
+
+    .meter-row {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .load-number {
+      font-family: Impact, "Arial Black", sans-serif;
+      font-size: clamp(44px, 5vw, 78px);
+      font-style: italic;
+      line-height: .85;
+      color: var(--orange);
+    }
+
+    .meter-bar {
+      height: 9px;
+      margin-top: 15px;
+      border: 1px solid rgba(241, 237, 218, .5);
+      background: linear-gradient(90deg, var(--orange) var(--load), transparent 0);
+    }
+
+    .ticket {
+      position: relative;
+      min-height: 245px;
+      padding: 24px 20px 26px;
+      background:
+        repeating-linear-gradient(0deg, transparent 0 23px, rgba(17, 20, 15, .09) 23px 24px),
+        var(--paper);
+      box-shadow: 8px 10px 0 rgba(17, 20, 15, .2);
+      transform: rotate(1.4deg);
+    }
+
+    .ticket::after {
+      content: "";
+      position: absolute;
+      right: 0;
+      bottom: -8px;
+      left: 0;
+      height: 14px;
+      background: linear-gradient(135deg, var(--paper) 7px, transparent 0) 0 0 / 14px 14px repeat-x;
+    }
+
+    .ticket-label {
+      display: block;
+      margin-bottom: 14px;
+      color: var(--magenta);
+    }
+
+    .log {
+      display: grid;
+      gap: 12px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      font-family: "Courier New", monospace;
+      font-size: 11px;
+      line-height: 1.35;
+    }
+
+    .log li {
+      display: grid;
+      grid-template-columns: 34px 1fr;
+      gap: 8px;
+      border-bottom: 1px dotted rgba(17, 20, 15, .35);
+      padding-bottom: 6px;
+    }
+
+    .log time {
+      color: rgba(17, 20, 15, .52);
+    }
+
+    .hazard {
+      position: absolute;
+      z-index: -1;
+      width: 190px;
+      height: 55px;
+      background: repeating-linear-gradient(-45deg, var(--orange) 0 16px, var(--ink) 16px 32px);
+    }
+
+    .hazard-a {
+      top: -29px;
+      left: 8%;
+    }
+
+    .hazard-b {
+      right: 6%;
+      bottom: -30px;
+    }
+
+    .footer {
+      opacity: .72;
+    }
+
+    .footer span:last-child {
+      text-align: right;
+    }
+
+    .machine.jolt {
+      animation: jolt .28s steps(2);
+    }
+
+    body[data-stage="4"] .machine,
+    body[data-stage="5"] .machine {
+      --machine-tilt: -.8deg;
+    }
+
+    body[data-stage="6"] .machine,
+    body[data-stage="7"] .machine {
+      --machine-tilt: 1.3deg;
+    }
+
+    body[data-stage="8"] .machine {
+      --machine-tilt: -2deg;
+    }
+
+    body[data-stage="8"] .button-well,
+    body[data-stage="9"] .button-well {
+      animation: throb .55s ease-in-out infinite alternate;
+    }
+
+    body[data-stage="9"] .machine {
+      --machine-tilt: 2.4deg;
+      background-color: #b6c7d8;
+    }
+
+    body[data-stage="10"] {
+      --room: #5d133f;
+    }
+
+    body[data-stage="10"] .machine {
+      --machine-tilt: -3deg;
+      background-color: var(--orange);
+    }
+
+    body[data-stage="11"] {
+      --room: #0e2f61;
+    }
+
+    body[data-stage="11"] .machine {
+      --machine-tilt: 3.5deg;
+      background-color: #efb7da;
+    }
+
+    body[data-stage="11"] .panic {
+      animation: plead .42s ease-in-out infinite alternate;
+    }
+
+    body[data-stage="12"] {
+      --room: #f33a20;
+    }
+
+    body[data-stage="12"] .machine {
+      --machine-tilt: 0deg;
+      background: var(--paper);
+      box-shadow: 18px 18px 0 var(--blue), -18px -18px 0 var(--orange);
+    }
+
+    body[data-stage="12"] h1 {
+      max-width: 7ch;
+      color: var(--red);
+      text-shadow: 5px 5px 0 var(--orange);
+    }
+
+    body[data-stage="12"] .panic {
+      background:
+        radial-gradient(circle at 36% 25%, #fff 0 5%, transparent 6%),
+        radial-gradient(circle at 38% 33%, #4690ff 0 8%, var(--blue) 38%, #07309a 76%);
+      border-color: #06206c;
+      box-shadow:
+        0 16px 0 #06206c,
+        0 23px 28px rgba(0, 0, 0, .48);
+    }
+
+    @keyframes jolt {
+      0% { translate: 0; }
+      25% { translate: -9px 5px; }
+      50% { translate: 8px -4px; }
+      75% { translate: -4px -6px; }
+      100% { translate: 0; }
+    }
+
+    @keyframes throb {
+      from { scale: 1; }
+      to { scale: 1.045; }
+    }
+
+    @keyframes plead {
+      from { transform: translateY(-8px) rotate(-2deg); }
+      to { transform: translateY(-8px) rotate(2deg); }
+    }
+
+    @media (max-width: 900px) {
+      html,
+      body {
+        overflow: auto;
+      }
+
+      .bay {
+        min-height: 100svh;
+      }
+
+      .machine {
+        grid-template-columns: 1fr 1.25fr;
+        min-height: 0;
+        padding: 38px 32px;
+      }
+
+      .evidence {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: .8fr 1.2fr;
+      }
+
+      .rig {
+        min-height: 360px;
+      }
+
+      .gauge {
+        width: min(330px, 42vw);
+      }
+
+      .ticket {
+        min-height: 180px;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .bay {
+        padding: 14px;
+      }
+
+      .topline span:last-child,
+      .footer span:last-child {
+        display: none;
+      }
+
+      .machine {
+        grid-template-columns: 1fr;
+        width: 100%;
+        margin: 24px 0;
+        padding: 38px 22px 30px;
+      }
+
+      .copy {
+        text-align: center;
+        align-items: center;
+      }
+
+      h1 {
+        max-width: 100%;
+        font-size: clamp(48px, 14.5vw, 66px);
+        letter-spacing: -.06em;
+      }
+
+      .instruction {
+        margin-top: 16px;
+      }
+
+      .rig {
+        min-height: 330px;
+      }
+
+      .gauge {
+        width: min(300px, 78vw);
+      }
+
+      .button-well {
+        width: 190px;
+      }
+
+      .evidence {
+        grid-template-columns: 1fr;
+      }
+
+      .ticket {
+        display: none;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .machine,
+      .panic {
+        transition: none;
+      }
+
+      .machine.jolt,
+      body[data-stage] .button-well,
+      body[data-stage] .panic {
+        animation: none;
+      }
+    }
+  </style>
+</head>
+<body data-stage="0">
+  <canvas id="debris" aria-hidden="true"></canvas>
+
+  <main class="bay">
+    <header class="topline">
+      <span>Test bay 09 · unnecessary machinery</span>
+      <span class="live" id="liveStatus">Warranty intact</span>
+    </header>
+
+    <section class="machine" id="machine" aria-labelledby="headline">
+      <i class="hazard hazard-a" aria-hidden="true"></i>
+      <i class="hazard hazard-b" aria-hidden="true"></i>
+
+      <div class="copy">
+        <p class="kicker" id="kicker">Operator instruction 00</p>
+        <h1 id="headline">System pleasantly idle</h1>
+        <p class="instruction" id="instruction">This button has one job: not being pressed.</p>
+      </div>
+
+      <div class="rig">
+        <div class="gauge" aria-hidden="true"></div>
+        <div class="button-well">
+          <button class="panic" id="panic" type="button" aria-describedby="buttonCaption">
+            <span class="sr-only">Press the suspicious red button</span>
+          </button>
+        </div>
+        <div class="button-caption" id="buttonCaption">Do not press</div>
+      </div>
+
+      <aside class="evidence" aria-label="Incident evidence">
+        <div class="meter">
+          <div class="meter-row">
+            <span class="micro-label">Unnecessary<br>force</span>
+            <strong class="load-number"><span id="load">00</span>%</strong>
+          </div>
+          <div class="meter-bar" aria-hidden="true"></div>
+        </div>
+
+        <div class="ticket">
+          <span class="ticket-label">Incident log · do not detach</span>
+          <ol class="log" id="log">
+            <li><time>00</time><span>No incident. Beautiful.</span></li>
+          </ol>
+        </div>
+      </aside>
+    </section>
+
+    <footer class="footer">
+      <span>Enter / space / click / tap</span>
+      <span>R resets the evidence</span>
+    </footer>
+  </main>
+
+  <div class="sr-only" id="announcer" aria-live="polite"></div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const stages = [
+        {
+          kicker: "Operator instruction 00",
+          title: "System pleasantly idle",
+          instruction: "This button has one job: not being pressed.",
+          caption: "Do not press",
+          status: "Warranty intact",
+          log: "No incident. Beautiful."
+        },
+        {
+          kicker: "Unauthorized input 01",
+          title: "Input denied retroactively",
+          instruction: "Fine. That was the calibration press. It does not count.",
+          caption: "No second press",
+          status: "Warranty nervous",
+          log: "Finger detected. Blame pending."
+        },
+        {
+          kicker: "Unauthorized input 02",
+          title: "Button developing memory",
+          instruction: "It remembers your finger now. This feels unnecessarily personal.",
+          caption: "It knows what you did",
+          status: "Button observant",
+          log: "Button retained operator profile."
+        },
+        {
+          kicker: "Pressure event 03",
+          title: "Curiosity exceeds tolerance",
+          instruction: "The machine has begun converting confidence into paperwork.",
+          caption: "Last free mistake",
+          status: "Forms multiplying",
+          log: "Three forms born without parents."
+        },
+        {
+          kicker: "Pressure event 04",
+          title: "Room taking sides",
+          instruction: "The left wall supports you. The right wall has hired counsel.",
+          caption: "Press for legal advice",
+          status: "Counsel retained",
+          log: "Architecture expressed an opinion."
+        },
+        {
+          kicker: "Mechanical gossip 05",
+          title: "Gravity reassigned",
+          instruction: "Down is still available, but only by appointment.",
+          caption: "Do not stabilize",
+          status: "Floor provisional",
+          log: "Gravity placed on performance plan."
+        },
+        {
+          kicker: "Audible event 06",
+          title: "Consequences now musical",
+          instruction: "Every alarm is technically a song if nobody is helping.",
+          caption: "Perform the chorus",
+          status: "Siren unionized",
+          log: "Alarm requested a second verse."
+        },
+        {
+          kicker: "Incident event 07",
+          title: "This is now paperwork",
+          instruction: "You have pressed through several layers of plausible deniability.",
+          caption: "Destroy the paper trail",
+          status: "Liability yours",
+          log: "Plausible deniability depleted."
+        },
+        {
+          kicker: "Promotion event 08",
+          title: "Button promoted to supervisor",
+          instruction: "It has no qualifications, a loud voice, and your performance file.",
+          caption: "Request feedback",
+          status: "Button in charge",
+          log: "Button approved its own promotion."
+        },
+        {
+          kicker: "Containment event 09",
+          title: "Containment decorative",
+          instruction: "The bolts are mostly a visual metaphor at this point.",
+          caption: "Test the metaphor",
+          status: "Bolts freelance",
+          log: "Fasteners pursuing solo careers."
+        },
+        {
+          kicker: "Contractual warning 10",
+          title: "Last warning, legally",
+          instruction: "Not the last warning chronologically. The last one with a budget.",
+          caption: "Exceed the budget",
+          status: "Finance screaming",
+          log: "Warning department out of warnings."
+        },
+        {
+          kicker: "Pre-apocalypse 11",
+          title: "The calm part is over",
+          instruction: "Whatever happens next will be described as user-configured.",
+          caption: "Configure catastrophe",
+          status: "Calm unavailable",
+          log: "Catastrophe awaiting one checkbox."
+        },
+        {
+          kicker: "Final report 12",
+          title: "You fixed it wrong",
+          instruction: "The machine works perfectly now. Its job was to identify the problem.",
+          caption: "Undo everything",
+          status: "Problem identified",
+          log: "Operator successfully located."
+        }
+      ];
+
+      const body = document.body;
+      const canvas = document.querySelector("#debris");
+      const ctx = canvas.getContext("2d");
+      const machine = document.querySelector("#machine");
+      const button = document.querySelector("#panic");
+      const kicker = document.querySelector("#kicker");
+      const headline = document.querySelector("#headline");
+      const instruction = document.querySelector("#instruction");
+      const caption = document.querySelector("#buttonCaption");
+      const liveStatus = document.querySelector("#liveStatus");
+      const load = document.querySelector("#load");
+      const log = document.querySelector("#log");
+      const announcer = document.querySelector("#announcer");
+      const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      let stage = 0;
+      let audio;
+      let particles = [];
+      let lastFrame = performance.now();
+
+      function resize() {
+        const ratio = Math.min(devicePixelRatio || 1, 2);
+        canvas.width = Math.floor(innerWidth * ratio);
+        canvas.height = Math.floor(innerHeight * ratio);
+        canvas.style.width = `${innerWidth}px`;
+        canvas.style.height = `${innerHeight}px`;
+        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      }
+
+      function initAudio() {
+        if (!audio) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) audio = new AudioContext();
+        }
+        if (audio?.state === "suspended") audio.resume();
+      }
+
+      function tone(frequency, duration, type = "square", volume = .035, destination = 1) {
+        if (!audio) return;
+        const now = audio.currentTime;
+        const oscillator = audio.createOscillator();
+        const gain = audio.createGain();
+        oscillator.type = type;
+        oscillator.frequency.setValueAtTime(frequency, now);
+        oscillator.frequency.exponentialRampToValueAtTime(frequency * destination, now + duration);
+        gain.gain.setValueAtTime(volume, now);
+        gain.gain.exponentialRampToValueAtTime(.0001, now + duration);
+        oscillator.connect(gain);
+        gain.connect(audio.destination);
+        oscillator.start(now);
+        oscillator.stop(now + duration);
+      }
+
+      function makeSound() {
+        const frequency = 70 * Math.pow(1.105, stage);
+        tone(frequency, .14, stage > 8 ? "sawtooth" : "square", .045, 1.65);
+        tone(frequency * 2.02, .09, "triangle", .025, .8);
+        if (stage === 6 || stage === 11) {
+          setTimeout(() => tone(frequency * 1.5, .34, "sawtooth", .035, .45), 90);
+        }
+        if (stage === 12) {
+          [1, 1.26, 1.5, 2].forEach((ratio, index) => {
+            setTimeout(() => tone(110 * ratio, .8, "sawtooth", .028, 2.2), index * 55);
+          });
+        }
+      }
+
+      function burst(count = 22) {
+        if (reducedMotion) return;
+        const rect = button.getBoundingClientRect();
+        const x = rect.left + rect.width / 2;
+        const y = rect.top + rect.height / 2;
+        const colors = ["#f33a20", "#ff9e1b", "#175cff", "#f1edda", "#b52c87"];
+
+        for (let index = 0; index < count; index += 1) {
+          const angle = Math.random() * Math.PI * 2;
+          const force = 90 + Math.random() * (stage === 12 ? 470 : 170);
+          particles.push({
+            x,
+            y,
+            vx: Math.cos(angle) * force,
+            vy: Math.sin(angle) * force - 80,
+            size: 3 + Math.random() * 9,
+            spin: (Math.random() - .5) * 12,
+            rotation: Math.random() * 6,
+            life: 1,
+            color: colors[Math.floor(Math.random() * colors.length)]
+          });
+        }
+      }
+
+      function addLog(item, number) {
+        const line = document.createElement("li");
+        line.innerHTML = `<time>${String(number).padStart(2, "0")}</time><span>${item}</span>`;
+        log.prepend(line);
+        while (log.children.length > 4) log.lastElementChild.remove();
+      }
+
+      function render() {
+        const data = stages[stage];
+        const percent = Math.round(stage / (stages.length - 1) * 100);
+        body.dataset.stage = stage;
+        document.documentElement.style.setProperty("--load", `${percent}%`);
+        kicker.textContent = data.kicker;
+        headline.textContent = data.title;
+        instruction.textContent = data.instruction;
+        caption.textContent = data.caption;
+        liveStatus.textContent = data.status;
+        load.textContent = String(percent).padStart(2, "0");
+        announcer.textContent = `${data.title}. ${data.instruction}`;
+      }
+
+      function reset() {
+        stage = 0;
+        log.innerHTML = `<li><time>00</time><span>${stages[0].log}</span></li>`;
+        particles = [];
+        render();
+        tone(130, .28, "sine", .03, .55);
+      }
+
+      function press() {
+        initAudio();
+        button.classList.add("pressed");
+        machine.classList.remove("jolt");
+        void machine.offsetWidth;
+        machine.classList.add("jolt");
+        setTimeout(() => button.classList.remove("pressed"), 110);
+
+        if (stage === stages.length - 1) {
+          reset();
+          return;
+        }
+
+        stage += 1;
+        render();
+        addLog(stages[stage].log, stage);
+        burst(stage === 12 ? 190 : 14 + stage * 2);
+        makeSound();
+      }
+
+      function animate(now) {
+        const dt = Math.min(.033, (now - lastFrame) / 1000);
+        lastFrame = now;
+        ctx.clearRect(0, 0, innerWidth, innerHeight);
+
+        particles.forEach((particle) => {
+          particle.vy += 420 * dt;
+          particle.x += particle.vx * dt;
+          particle.y += particle.vy * dt;
+          particle.rotation += particle.spin * dt;
+          particle.life -= dt * .62;
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, particle.life);
+          ctx.translate(particle.x, particle.y);
+          ctx.rotate(particle.rotation);
+          ctx.fillStyle = particle.color;
+          ctx.fillRect(-particle.size / 2, -particle.size / 2, particle.size, particle.size * .55);
+          ctx.restore();
+        });
+        particles = particles.filter((particle) => particle.life > 0 && particle.y < innerHeight + 80);
+        requestAnimationFrame(animate);
+      }
+
+      button.addEventListener("click", press);
+      addEventListener("keydown", (event) => {
+        if (event.code === "KeyR") {
+          reset();
+          return;
+        }
+        if ((event.code === "Enter" || event.code === "Space") && document.activeElement !== button) {
+          event.preventDefault();
+          press();
+        }
+      });
+      addEventListener("pointermove", (event) => {
+        document.documentElement.style.setProperty("--mx", `${event.clientX}px`);
+        document.documentElement.style.setProperty("--my", `${event.clientY}px`);
+      });
+      addEventListener("resize", resize);
+
+      resize();
+      render();
+      requestAnimationFrame(animate);
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1036 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>layer 14</title>
+</head>
+<body>
+<style>
+  :root{
+    --ground:#0a0608;
+    --warm:#c8c0b0;      /* the player's voice */
+    --cold:#a8c4c4;      /* hers */
+    --chrome:#4a5a66;
+    --red:#b3251c;
+    --red-hot:#ff2a1f;
+    --splotch:#3d0a0a;
+    --ab:0px;            /* chromatic aberration offset = the drift, readable in the letterforms */
+    --splotch-o:0;
+    --splotch-t:0px;
+  }
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--ground); color:var(--warm);
+    font-family:ui-monospace,'Cascadia Mono',Menlo,Consolas,'Liberation Mono',monospace;
+    font-size:clamp(13px,2.4vw,15.5px); line-height:1.75;
+    overflow:hidden; color-scheme:dark;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--red); color:#f0e8e0}
+
+  #stage{position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; z-index:2}
+
+  /* ---------- chrome bar ---------- */
+  #bar{
+    width:100%; max-width:72ch; box-sizing:border-box;
+    display:flex; justify-content:space-between; gap:1ch;
+    padding:10px 16px 6px; color:var(--chrome);
+    font-size:.72em; letter-spacing:.22em; text-transform:uppercase;
+    border-bottom:1px solid rgba(74,90,102,.28);
+    text-shadow:var(--ab) 0 rgba(255,42,31,.35), calc(var(--ab)*-1) 0 rgba(120,255,230,.25);
+    flex:none;
+  }
+  #bar span{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+
+  /* ---------- boot ---------- */
+  #boot{
+    width:100%; max-width:72ch; box-sizing:border-box; padding:12vh 16px 0;
+    color:var(--chrome); white-space:pre-wrap;
+    text-shadow:var(--ab) 0 rgba(255,42,31,.35), calc(var(--ab)*-1) 0 rgba(120,255,230,.25);
+  }
+  #boot .flicker{color:var(--red-hot)}
+
+  /* ---------- serif interstitial card ---------- */
+  #card{
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    font-family:Georgia,'Times New Roman',serif; font-style:italic;
+    font-size:clamp(19px,4vw,28px); letter-spacing:.04em; color:#ddd6c8;
+    background:var(--ground); opacity:0; transition:opacity 1.1s ease; pointer-events:none;
+    text-align:center; padding:0 24px; z-index:30;
+  }
+  #card.show{opacity:1}
+
+  /* ---------- gate ---------- */
+  #gate{display:flex; flex-direction:column; align-items:center; gap:18px; margin-top:9vh}
+  #wire{
+    background:none; border:1px solid var(--chrome); color:var(--cold);
+    font:inherit; letter-spacing:.14em; padding:10px 26px; cursor:pointer;
+  }
+  #wire:hover{border-color:var(--cold)}
+  #wire:focus-visible{outline:1px solid var(--red-hot); outline-offset:3px}
+  #gate small{color:#3a4750; letter-spacing:.08em}
+
+  /* ---------- terminal ---------- */
+  #term{
+    width:100%; max-width:72ch; box-sizing:border-box; flex:1 1 auto; min-height:0;
+    display:flex; flex-direction:column; padding:14px 16px 16px;
+    text-shadow:var(--ab) 0 rgba(255,42,31,.35), calc(var(--ab)*-1) 0 rgba(120,255,230,.25);
+  }
+  #log{flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:#26303a transparent}
+  .entry{margin:0 0 .35em; word-break:break-word}
+  .entry.first{position:sticky; top:0; z-index:2; background:var(--ground); box-shadow:0 7px 9px -3px rgba(10,6,8,.92); padding-bottom:2px}
+  .entry .pfx{color:#5a544a; margin-right:1ch}
+  .sys{color:var(--cold)}
+  .her{color:var(--cold); font-style:italic}
+  .you{color:var(--warm)}
+  .note{color:#5a6a72; font-size:.85em; text-shadow:none}
+  .cold{color:var(--cold)}
+  .glitch{color:var(--red)}
+  .dim{opacity:.22; transition:opacity 2.5s linear}
+  .eaten{animation:eatflash .5s steps(2) 1}
+  @keyframes eatflash{0%{background:linear-gradient(rgba(179,37,28,.55),rgba(179,37,28,.55)) var(--ground)} 100%{background:var(--ground)}}
+  .morphed{animation:morphflash .8s ease-out 1}
+  @keyframes morphflash{0%{color:var(--red-hot)} 100%{}}
+
+  /* ---------- input line ---------- */
+  #iline{flex:none; display:flex; align-items:baseline; padding-top:.4em; border-top:1px solid rgba(74,90,102,.22)}
+  #plabel{color:#5a544a; margin-right:1ch; white-space:pre}
+  #ibuf{white-space:pre-wrap; word-break:break-word}
+  #ghost{color:#54504a; white-space:pre-wrap}
+  #caret{
+    display:inline-block; width:.62em; height:1.05em; margin-left:1px;
+    background:var(--warm); vertical-align:text-bottom;
+    animation:blink 1.06s steps(2) infinite;
+  }
+  #caret.still{animation:none; opacity:.35}
+  #caret.dead{animation:none; opacity:.25}
+  @keyframes blink{50%{opacity:0}}
+  .stray{
+    position:absolute; width:.62em; height:1.05em; background:var(--cold);
+    opacity:.7; pointer-events:none; z-index:3;
+  }
+
+  /* ---------- atmosphere ---------- */
+  .splotch{
+    position:fixed; width:46vmax; height:46vmax; border-radius:50%;
+    background:radial-gradient(circle, var(--splotch) 0%, rgba(61,10,10,.5) 34%, transparent 68%);
+    opacity:var(--splotch-o); pointer-events:none; z-index:1;
+    transition:opacity 3s ease, transform 3s ease;
+    animation:breathe 11s ease-in-out infinite alternate;
+  }
+  .s1{top:-26vmax; left:-20vmax; transform:translate(var(--splotch-t),var(--splotch-t))}
+  .s2{bottom:-28vmax; right:-18vmax; transform:translate(calc(var(--splotch-t)*-1),calc(var(--splotch-t)*-1))}
+  .s3{top:30%; left:-32vmax; transform:translate(var(--splotch-t),0); animation-delay:-5s}
+  .s4{bottom:-30vmax; left:22%; transform:translate(0,calc(var(--splotch-t)*-1)); animation-delay:-8s}
+  @keyframes breathe{from{scale:1}to{scale:1.12}}
+
+  #scan{
+    position:fixed; inset:0; pointer-events:none; z-index:20;
+    background:repeating-linear-gradient(to bottom, rgba(0,0,0,.16) 0 1px, transparent 1px 3px);
+    mix-blend-mode:multiply;
+  }
+  #roll{
+    position:fixed; left:0; right:0; height:110px; top:-130px; pointer-events:none; z-index:21;
+    background:linear-gradient(to bottom, transparent, rgba(200,220,220,.028), transparent);
+    animation:roll 9.5s linear infinite;
+  }
+  @keyframes roll{to{transform:translateY(calc(100vh + 260px))}}
+  #vig{
+    position:fixed; inset:0; pointer-events:none; z-index:22;
+    background:radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.5) 100%);
+  }
+  #noise{position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:25; opacity:0; transition:opacity 4s ease}
+
+  body.invert{filter:invert(1) hue-rotate(180deg)}
+
+  /* ---------- controls ---------- */
+  #snd{
+    position:fixed; top:8px; right:10px; z-index:40;
+    background:none; border:none; color:#55646f; font:inherit; font-size:.7em;
+    letter-spacing:.18em; text-transform:uppercase; cursor:pointer; padding:6px;
+  }
+  #snd:hover{color:var(--chrome)}
+  #snd:focus-visible{outline:1px solid var(--chrome); outline-offset:2px}
+
+  #again{
+    position:fixed; bottom:5vh; left:0; right:0; text-align:center; z-index:31;
+    font-family:Georgia,serif; font-style:italic; color:#7a6f5e; font-size:.95em;
+    cursor:pointer; opacity:0; transition:opacity 3s ease; letter-spacing:.05em;
+  }
+  #again.show{opacity:1}
+  #again:focus-visible{outline:1px solid var(--chrome); outline-offset:4px}
+
+  #hin{
+    position:fixed; bottom:0; left:0; width:2px; height:2px; opacity:.01;
+    border:none; background:none; color:transparent; font-size:16px; z-index:0;
+  }
+
+  [hidden]{display:none !important}
+
+  @media (max-width:560px){
+    #bclock{display:none}
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    #roll{animation:none; display:none}
+    .splotch{animation:none}
+    #caret{animation:none; opacity:.8}
+    body.invert{filter:none}
+  }
+</style>
+
+<div id="stage">
+  <div id="bar" hidden><span>copland os enterprise</span><span id="bmid">layer 14</span><span id="bclock"></span></div>
+  <div id="boot"></div>
+  <main id="term" hidden>
+    <div id="log" aria-live="polite"></div>
+    <div id="iline" hidden><span id="plabel"></span><span id="ibuf"></span><span id="caret"></span><span id="ghost"></span></div>
+  </main>
+</div>
+<div class="splotch s1"></div><div class="splotch s2"></div><div class="splotch s3"></div><div class="splotch s4"></div>
+<canvas id="noise"></canvas>
+<div id="scan"></div>
+<div id="roll" hidden></div>
+<div id="vig"></div>
+<div id="card"></div>
+<div id="again" role="button" tabindex="0" hidden>present day. present time.</div>
+<button id="snd" hidden>sound·on</button>
+<input id="hin" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send" aria-label="terminal input">
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const qsp = new URLSearchParams(location.search);
+const FAST = qsp.has('fast');
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const T = ms => FAST ? Math.max(8, ms/10) : ms;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const LSKEY = 'layer14.record';
+
+const S = {
+  phase:'boot', name:'', origName:'', isLain:false,
+  vocab:[], answers:[], selQuote:'', selCount:0, awayNoted:false,
+  drift:0, subCount:0, subPool:[], subIdx:0,
+  morphPath:[], morphIdx:0, typing:false, ended:false,
+};
+
+/* =============== audio — everything synthesized =============== */
+const Snd = {
+  ctx:null, on:true, master:null, humGain:null, lp:null,
+  partials:[], wGain:null, wBase:0,
+  init(){
+    if (this.ctx) return;
+    try {
+      const C = new (window.AudioContext || window.webkitAudioContext)();
+      this.ctx = C;
+      this.master = C.createGain(); this.master.gain.value = 1; this.master.connect(C.destination);
+      this.lp = C.createBiquadFilter(); this.lp.type='lowpass'; this.lp.frequency.value = 720; this.lp.Q.value = .6;
+      this.humGain = C.createGain(); this.humGain.gain.value = 0;
+      this.lp.connect(this.humGain); this.humGain.connect(this.master);
+      // mains hum voiced through harmonics — a bare 50Hz dies on laptop speakers
+      [[100,.5],[150,.22],[250,.12],[350,.055]].forEach(([f,g]) => this.addPartial(f,g,.4));
+      const lfo = C.createOscillator(), lg = C.createGain();
+      lfo.frequency.value = .08; lg.gain.value = .022;
+      lfo.connect(lg); lg.connect(this.humGain.gain); lfo.start();
+      this.humGain.gain.setTargetAtTime(.16, C.currentTime, 2.5);
+      this.whisper();
+    } catch(e) { this.ctx = null; }
+  },
+  addPartial(f, g, det){
+    const C = this.ctx; if (!C) return;
+    for (const d of [0, det]) {
+      const o = C.createOscillator(), og = C.createGain();
+      o.type='sine'; o.frequency.value = f + d;
+      og.gain.value = d ? g*.45 : g;
+      o.connect(og); og.connect(this.lp); o.start();
+      this.partials.push({o, og, f});
+    }
+  },
+  whisper(){
+    const C = this.ctx; if (!C) return;
+    const len = 2*C.sampleRate, buf = C.createBuffer(1, len, C.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i=0;i<len;i++) d[i] = Math.random()*2-1;
+    const src = C.createBufferSource(); src.buffer = buf; src.loop = true;
+    this.wGain = C.createGain(); this.wGain.gain.value = 0;
+    this.wGain.connect(this.master);
+    // speech-cadence gate multiplies (never adds): whispers can only be as loud as wGain allows
+    const gate = C.createGain(); gate.gain.value = .5;
+    gate.connect(this.wGain);
+    for (const [f,q] of [[420,9],[1150,11],[2400,13]]) {
+      const bp = C.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=f; bp.Q.value=q;
+      const sw = C.createOscillator(), swg = C.createGain();
+      sw.frequency.value = .11 + f/9000; swg.gain.value = f*.35;
+      sw.connect(swg); swg.connect(bp.frequency); sw.start();
+      src.connect(bp); bp.connect(gate);
+    }
+    const g1 = C.createOscillator(), g1g = C.createGain();
+    g1.frequency.value = 2.7; g1g.gain.value = .24; g1.connect(g1g);
+    const g2 = C.createOscillator(), g2g = C.createGain();
+    g2.frequency.value = .43; g2g.gain.value = .2; g2.connect(g2g);
+    g1g.connect(gate.gain); g2g.connect(gate.gain);
+    g1.start(); g2.start();
+    src.start();
+    this.setWhisper(this.wBase);
+  },
+  setWhisper(v){ if (this.wGain) this.wGain.gain.setTargetAtTime(v, this.ctx.currentTime, 1.2); },
+  env(g, peak, a, r){
+    const t = this.ctx.currentTime;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(peak, t+a);
+    g.gain.exponentialRampToValueAtTime(.0001, t+a+r);
+  },
+  tick(hijacked){
+    const C = this.ctx; if (!C || !this.on) return;
+    const mk = (fq, peak, delay) => {
+      const n = C.createBufferSource(); n.buffer = this.tickBuf || (this.tickBuf = (()=>{
+        const b = C.createBuffer(1, C.sampleRate*.03, C.sampleRate), dd = b.getChannelData(0);
+        for (let i=0;i<dd.length;i++) dd[i] = (Math.random()*2-1) * (1 - i/dd.length);
+        return b;
+      })());
+      const bp = C.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value = fq; bp.Q.value = 2.2;
+      const g = C.createGain();
+      n.connect(bp); bp.connect(g); g.connect(this.master);
+      const t = C.currentTime + delay;
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak, t+.003);
+      g.gain.exponentialRampToValueAtTime(.0001, t+.03);
+      n.start(t);
+    };
+    if (hijacked) { mk(1100,.09,0); mk(880,.05,.09); } else mk(2100,.07,0);
+  },
+  chirp(){
+    const C = this.ctx; if (!C || !this.on) return;
+    const o = C.createOscillator(), g = C.createGain();
+    o.type='sine'; o.frequency.setValueAtTime(300, C.currentTime);
+    o.frequency.exponentialRampToValueAtTime(1800, C.currentTime+.12);
+    o.connect(g); g.connect(this.master);
+    this.env(g,.05,.01,.13); o.start(); o.stop(C.currentTime+.2);
+  },
+  thunk(){
+    const C = this.ctx; if (!C || !this.on) return;
+    const o = C.createOscillator(), g = C.createGain();
+    o.type='triangle'; o.frequency.setValueAtTime(92, C.currentTime);
+    o.frequency.exponentialRampToValueAtTime(55, C.currentTime+.1);
+    o.connect(g); g.connect(this.master);
+    this.env(g,.16,.004,.12); o.start(); o.stop(C.currentTime+.18);
+    // the hum swells against you while you erase
+    if (this.humGain) {
+      const t = C.currentTime;
+      this.humGain.gain.cancelScheduledValues(t);
+      this.humGain.gain.setTargetAtTime(.30, t, .06);
+      this.humGain.gain.setTargetAtTime(.16, t+.35, .8);
+    }
+    if (this.lp) { this.lp.frequency.setTargetAtTime(1400, C.currentTime, .06); this.lp.frequency.setTargetAtTime(720, C.currentTime+.35, .8); }
+  },
+  blip(i){
+    const C = this.ctx; if (!C || !this.on) return;
+    const o = C.createOscillator(), g = C.createGain();
+    o.type='sine'; o.frequency.value = Math.max(140, 620 - i*26);
+    o.connect(g); g.connect(this.master);
+    this.env(g,.05,.005,.16); o.start(); o.stop(C.currentTime+.22);
+  },
+  driftUp(stage){
+    if (!this.ctx) return;
+    if (stage===1) this.addPartial(179,.06,.55);
+    if (stage===2) this.addPartial(233,.05,.7);
+    if (stage===3) { this.addPartial(313,.05,.9); this.setWhisper(.02); }
+  },
+  converge(){
+    const C = this.ctx; if (!C) return;
+    const t = C.currentTime;
+    for (const p of this.partials) {
+      p.o.frequency.setTargetAtTime(220, t, 2.4);
+      p.og.gain.setTargetAtTime(.09, t, 2.4);
+    }
+    this.lp.frequency.setTargetAtTime(2200, t, 2);
+    this.setWhisper(.06);
+    this.humGain.gain.setTargetAtTime(.12, t+6, 3);
+  },
+  drain(sec){
+    const C = this.ctx; if (!C) return;
+    const t = C.currentTime;
+    this.partials.forEach((p,i) => p.og.gain.setTargetAtTime(0, t + i*(sec/this.partials.length)*.6, 1.5));
+    this.lp.frequency.setTargetAtTime(45, t, sec*.45);
+    this.humGain.gain.setTargetAtTime(0, t + sec*.55, sec*.25);
+    this.setWhisper(0);
+  },
+  toggle(){
+    this.on = !this.on;
+    if (this.master) this.master.gain.setTargetAtTime(this.on?1:0, this.ctx.currentTime, .1);
+    $('snd').textContent = this.on ? 'sound·on' : 'sound·off';
+  }
+};
+
+/* =============== log =============== */
+const entries = [];
+function addLine(cls, pfx){
+  const el = document.createElement('div');
+  el.className = 'entry ' + cls;
+  const e = { el, cls, pfx: pfx||'', chars: [] };
+  if (pfx) { const p = document.createElement('span'); p.className='pfx'; p.textContent = pfx; el.appendChild(p); }
+  $('log').appendChild(el);
+  entries.push(e);
+  if (entries.length===1) el.classList.add('first');
+  return e;
+}
+function render(e){
+  e.el.textContent = '';
+  if (e.pfx) { const p = document.createElement('span'); p.className='pfx'; p.textContent = e.pfx; e.el.appendChild(p); }
+  let run=null, runCls=null;
+  for (const c of e.chars) {
+    const cl = c.cls || '';
+    if (run===null || cl!==runCls) {
+      run = document.createElement('span'); if (cl) run.className = cl;
+      e.el.appendChild(run); runCls = cl;
+    }
+    run.textContent += c.ch;
+  }
+  $('log').scrollTop = $('log').scrollHeight;
+}
+function lineText(e){ return e.chars.map(c=>c.ch).join(''); }
+
+let skipType = false;
+let typeChain = Promise.resolve();
+function typeSys(text, opts={}){
+  const run = typeChain.then(()=>typeSysRaw(text, opts));
+  typeChain = run.then(()=>{}, ()=>{});
+  return run;
+}
+async function typeSysRaw(text, opts={}){
+  S.typing = true;
+  $('log').setAttribute('aria-busy','true');
+  const e = addLine(opts.cls || 'sys', opts.pfx);
+  const cps = opts.cps || 34;
+  const chars = [...text];
+  for (let i=0;i<chars.length;i++){
+    e.chars.push({ch:chars[i], cls:opts.charCls});
+    if (skipType) { for (i++;i<chars.length;i++) e.chars.push({ch:chars[i], cls:opts.charCls}); render(e); break; }
+    render(e);
+    await sleep(T(1000/cps + Math.random()*18));
+  }
+  S.typing = false;
+  $('log').removeAttribute('aria-busy');
+  return e;
+}
+function queueNote(text, cls){ typeSys(text, {cls:cls||'note', cps:44}); }
+
+/* =============== drift visuals =============== */
+function setDrift(n){
+  S.drift = n;
+  const r = document.documentElement.style;
+  r.setProperty('--ab', (n*1.7).toFixed(2)+'px');
+  r.setProperty('--splotch-o', (n*.85).toFixed(2));
+  r.setProperty('--splotch-t', (n*14).toFixed(0)+'vmax');
+}
+async function invertFlash(times=1){
+  if (RM) return;
+  for (let i=0;i<times;i++){
+    document.body.classList.add('invert'); await sleep(64);
+    document.body.classList.remove('invert'); await sleep(110);
+  }
+}
+let strayTimer = null;
+function strayCarets(on){
+  if (RM) return;
+  clearInterval(strayTimer);
+  if (!on) return;
+  strayTimer = setInterval(()=>{
+    const els = $('log').querySelectorAll('.entry');
+    if (!els.length) return;
+    const el = els[Math.floor(Math.random()*els.length)];
+    const r = el.getBoundingClientRect();
+    if (r.top < 0 || r.bottom > innerHeight) return;
+    const c = document.createElement('div');
+    c.className='stray';
+    c.style.left = (r.left + Math.random()*Math.min(r.width, 400))+'px';
+    c.style.top = r.top+'px';
+    document.body.appendChild(c);
+    setTimeout(()=>c.remove(), 620);
+  }, 8800);
+}
+
+/* =============== name morph =============== */
+function buildMorphPath(name){
+  const steps = [];
+  let cur = [...name];
+  const push = a => { if (a.join('') !== cur.join('')) { steps.push(a.join('')); cur = a; } };
+  push([...name.toLowerCase()]);
+  while (cur.length > 4) push(cur.slice(0, -1));
+  while (cur.length < 4) push([...cur, 'lain'[cur.length]]);
+  for (let i=0;i<4;i++) if (cur[i] !== 'lain'[i]) push([...cur.slice(0,i), 'lain'[i], ...cur.slice(i+1)]);
+  return steps;
+}
+function morphCurrent(){ return S.morphPath.length ? (S.morphIdx>0 ? S.morphPath[S.morphIdx-1] : S.origName.toLowerCase()) : S.origName.toLowerCase(); }
+function advanceMorph(count=1){
+  for (let i=0;i<count && S.morphIdx < S.morphPath.length;i++) S.morphIdx++;
+  const cur = morphCurrent();
+  S.name = cur;
+  $('plabel').textContent = cur + ' >';
+  if (S.nameEntry && entries.includes(S.nameEntry)) {
+    S.nameEntry.chars = [...cur].map(ch=>({ch}));
+    render(S.nameEntry);
+    S.nameEntry.el.classList.remove('morphed'); void S.nameEntry.el.offsetWidth;
+    S.nameEntry.el.classList.add('morphed');
+  }
+}
+function morphStepsLeft(){ return S.morphPath.length - S.morphIdx; }
+
+/* =============== input controller =============== */
+const IC = {
+  active:false, buf:[], mode:{}, prevVal:'', resolve:null,
+  silence:{t:null, hintAt:0, dimAt:0, endAt:0, last:0, hinted:false, dimmed:0, hintEl:null},
+  eats:0, onEat:null, hijackIdx:0,
+
+  read(mode={}){
+    this.mode = mode;
+    this.buf = (mode.prefill ? [...mode.prefill].map(ch=>({ch})) : []);
+    this.eats = 0; this.hijackIdx = 0;
+    this.active = true;
+    const ahead = this.typeahead || '';
+    this.typeahead = '';
+    $('iline').hidden = false;
+    $('caret').classList.remove('still');
+    $('caret').style.background = mode.hijack ? 'var(--cold)' : '';
+    const hin = $('hin');
+    // pad so backspace always has something to delete
+    hin.value = ' '.repeat(60);
+    this.prevVal = hin.value;
+    hin.focus({preventScroll:true});
+    this.renderLine();
+    this.silence.last = performance.now();
+    if (mode.silence) this.armSilence(mode.silence);
+    if (ahead && !mode.prefill && !mode.hijack) this.insert(ahead);
+    return new Promise(res => this.resolve = res);
+  },
+  finish(result){
+    this.active = false;
+    this.disarmSilence();
+    $('iline').hidden = true; $('ghost').textContent = '';
+    const r = this.resolve; this.resolve = null;
+    if (r) r(result);
+  },
+  renderLine(){
+    $('plabel').textContent = (S.name || 'subject') + ' >';
+    const b = $('ibuf'); b.textContent = '';
+    let run=null, runCls=null;
+    for (const c of this.buf) {
+      const cl = c.cls||'';
+      if (run===null||cl!==runCls){ run=document.createElement('span'); if(cl)run.className=cl; b.appendChild(run); runCls=cl; }
+      run.textContent += c.ch;
+    }
+    $('ghost').textContent = this.ghostFor();
+  },
+  ghostFor(){
+    if (!this.mode.predict || this.mode.hijack) return '';
+    const text = this.buf.map(c=>c.ch).join('');
+    const m = text.match(/(\S{2,})$/);
+    if (!m) return '';
+    const pre = m[1].toLowerCase();
+    for (const w of S.vocab) if (w.startsWith(pre) && w.length > pre.length) return w.slice(pre.length);
+    return '';
+  },
+  insert(str){
+    this.markInput();
+    for (const ch of str){
+      if (!this.mode.hijack && this.buf.length >= 240) continue;
+      if (this.mode.hijack){
+        const hs = this.mode.hijack;
+        for (let k=0;k<2 && this.hijackIdx<hs.length;k++){
+          const hc = hs[this.hijackIdx++];
+          if (hc === '\n'){ this.commitHijackLine(); break; }
+          this.buf.push({ch:hc, cls:'cold'});
+        }
+        Snd.tick(true);
+        if (this.hijackIdx >= hs.length){ this.commitHijackLine(); this.finish({kind:'merged'}); return; }
+      } else {
+        S.subCount++;
+        const every = this.mode.subEvery;
+        if (every && S.subCount % every === 0 && /\S/.test(ch)){
+          const sub = S.subPool[S.subIdx++ % S.subPool.length];
+          this.buf.push({ch:sub, cls:'cold'});
+          Snd.chirp();
+        } else {
+          this.buf.push({ch});
+          Snd.tick(false);
+        }
+      }
+    }
+    this.renderLine();
+  },
+  backspace(n=1){
+    this.markInput();
+    if (this.mode.eats) n = Math.min(n, 3);
+    for (let i=0;i<n;i++){
+      if (this.mode.eats){ this.eatOldest(); }
+      else if (this.buf.length){ this.buf.pop(); Snd.tick(false); }
+    }
+    this.renderLine();
+  },
+  eatOldest(){
+    const e = entries[0];
+    if (!e){
+      if (this.mode.canConsumeAll) this.finish({kind:'ate_all'});
+      else if (!this.warnedEmpty){ this.warnedEmpty = true; queueNote('there is nothing left to unwrite.', 'her'); }
+      return;
+    }
+    if (e === S.nameEntry) S.nameEntry = null;
+    e.chars.pop();
+    Snd.thunk();
+    this.eats++;
+    $('log').setAttribute('aria-busy','true');
+    clearTimeout(this.busyT);
+    this.busyT = setTimeout(()=>$('log').removeAttribute('aria-busy'), 700);
+    if (!e.chars.length){
+      e.el.remove(); entries.shift();
+      if (entries[0]) entries[0].el.classList.add('first');
+    } else {
+      render(e);
+      e.el.classList.remove('eaten'); void e.el.offsetWidth;
+      e.el.classList.add('eaten');
+    }
+    if (this.onEat) this.onEat(this.eats);
+    if (!entries.length && this.mode.canConsumeAll) this.finish({kind:'ate_all'});
+  },
+  commitHijackLine(){
+    if (!this.buf.length) return;
+    const e = addLine('you', null);
+    e.chars = this.buf.slice();
+    render(e);
+    this.buf = [];
+  },
+  commit(){
+    this.markInput();
+    if (this.mode.hijack){ this.commitHijackLine(); this.renderLine(); return; }
+    const text = this.buf.map(c=>c.ch).join('');
+    const e = addLine('you', '>');
+    e.chars = this.buf.slice();
+    render(e);
+    this.finish({kind:'text', text, entry:e});
+  },
+  armSilence(cfg){
+    const s = this.silence;
+    s.hintAt = T(cfg.hint); s.dimAt = T(cfg.dim); s.endAt = T(cfg.end);
+    s.last = performance.now(); s.hinted = false; s.dimmed = 0; s.hintEl = null;
+    s.t = setInterval(()=>this.silenceTick(), 400);
+  },
+  disarmSilence(){ clearInterval(this.silence.t); this.silence.t = null; },
+  markInput(){
+    const s = this.silence;
+    s.last = performance.now();
+    if (s.hinted){
+      // they came back — withdraw the hint, undim
+      if (s.hintEl){ s.hintEl.el.remove(); const i = entries.indexOf(s.hintEl); if (i>=0) entries.splice(i,1); s.hintEl = null; }
+      entries.forEach(e=>e.el.classList.remove('dim'));
+      s.hinted = false; s.dimmed = 0;
+      $('caret').classList.remove('still');
+    }
+  },
+  silenceTick(){
+    const s = this.silence;
+    const idle = performance.now() - s.last;
+    if (idle > s.hintAt && !s.hinted){
+      s.hinted = true;
+      const e = addLine('note');
+      e.chars = [...'input expect'].map(ch=>({ch}));
+      e.chars.push({ch:'—'});
+      render(e);
+      s.hintEl = e;
+      $('caret').classList.add('still');
+    }
+    if (idle > s.dimAt){
+      const n = Math.floor((idle - s.dimAt) / 900);
+      while (s.dimmed < Math.min(n, entries.length)){ entries[s.dimmed].el.classList.add('dim'); s.dimmed++; }
+    }
+    if (idle > s.endAt){
+      this.disarmSilence();
+      this.finish({kind:'silence'});
+    }
+  },
+};
+
+const hin = $('hin');
+hin.addEventListener('input', ()=>{
+  const v = hin.value, p = IC.prevVal;
+  if (!IC.active){
+    // type-ahead: keystrokes during system output land in the next prompt
+    const typed = v.replace(/[ \n\r]/g,'');
+    if (typed) IC.typeahead = ((IC.typeahead||'') + typed).slice(-40);
+    hin.value = ' '.repeat(60); IC.prevVal = hin.value; return;
+  }
+  if (v.length < p.length) IC.backspace(p.length - v.length);
+  else if (v.length > p.length){
+    let start = 0;
+    while (start < p.length && v[start] === p[start]) start++;
+    IC.insert(v.slice(start, start + (v.length - p.length)).replace(/[ \n\r]/g,''));
+  }
+  if (v.length < 20 || v.length > 400) { hin.value = ' '.repeat(60); }
+  IC.prevVal = hin.value;
+});
+hin.addEventListener('keydown', e=>{
+  if (e.key === 'Enter'){ e.preventDefault(); if (IC.active) IC.commit(); }
+  if (e.key === 'Tab'){
+    e.preventDefault();
+    if (IC.active && !IC.mode.hijack){ const g = IC.ghostFor(); if (g) IC.insert(g); }
+  }
+});
+hin.addEventListener('blur', ()=>$('caret').classList.add('dead'));
+hin.addEventListener('focus', ()=>$('caret').classList.remove('dead'));
+$('log').addEventListener('scroll', ()=>{ if (IC.active) IC.silence.last = performance.now(); }, {passive:true});
+document.addEventListener('keydown', e=>{
+  if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='a' && S.phase!=='boot' && !S.ended){
+    e.preventDefault();
+    queueNote('all of it? then you already know.', 'her');
+    if (S.drift < .6) setDrift(S.drift + .15);
+  }
+});
+document.addEventListener('touchend', e=>{
+  if (S.phase==='boot' || S.ended) return;
+  if (e.target.closest('#snd,#again,#wire')) return;
+  const sel = getSelection();
+  if (!sel || sel.isCollapsed) hin.focus({preventScroll:true});
+});
+document.addEventListener('pointerdown', e=>{
+  if (S.phase==='boot' || S.ended) return;
+  if (e.target.closest('#snd,#again,#wire')) return;
+  setTimeout(()=>{
+    const sel = getSelection();
+    if (!sel || sel.isCollapsed) hin.focus({preventScroll:true});
+  }, 10);
+});
+
+/* selection-as-speech — a reader habit converted into testimony */
+let selT = null;
+document.addEventListener('selectionchange', ()=>{
+  if (IC.active) IC.silence.last = performance.now();
+  clearTimeout(selT);
+  selT = setTimeout(()=>{
+    if (S.selCount >= 2 || S.ended || !['intake','turn'].includes(S.phase)) return;
+    const sel = getSelection();
+    if (!sel || sel.isCollapsed) return;
+    const txt = sel.toString().trim();
+    if (txt.length < 4 || txt.length > 80 || txt.includes('\n')) return;
+    if (!$('log').contains(sel.anchorNode)) return;
+    S.selCount++;
+    S.selQuote = txt;
+    queueNote('noted. you said: "' + txt + '"');
+  }, 900);
+});
+
+document.addEventListener('visibilitychange', ()=>{
+  if (document.hidden){
+    if (Snd.ctx && !S.ended) Snd.setWhisper(.05);
+  } else {
+    if (Snd.ctx && !S.ended) Snd.setWhisper(S.drift > .5 ? .02 : Snd.wBase);
+    if (!S.awayNoted && ['intake','turn'].includes(S.phase) && !S.ended){
+      S.awayNoted = true;
+      queueNote('you looked away. i stayed.', 'her');
+    }
+  }
+});
+
+/* =============== boot / card / gate =============== */
+function bootLine(html, cls){
+  const d = document.createElement('div');
+  if (cls) d.className = cls;
+  if (html) d.textContent = html;
+  $('boot').appendChild(d);
+  return d;
+}
+async function typeBoot(text, cls, cps=52){
+  const d = bootLine('', cls);
+  for (const ch of text){
+    if (skipType){ d.textContent = text; break; }
+    d.textContent += ch; await sleep(T(1000/cps));
+  }
+  return d;
+}
+async function showCard(text, hold=2600){
+  const c = $('card');
+  c.textContent = text;
+  c.classList.add('show');
+  await sleep(T(hold));
+  c.classList.remove('show');
+  await sleep(T(1150));
+}
+function loadRecord(){
+  try { return JSON.parse(localStorage.getItem(LSKEY)); } catch(e){ return null; }
+}
+function saveRecord(outcome){
+  try { localStorage.setItem(LSKEY, JSON.stringify({name:S.origName, outcome, frag:(S.answers[2]||S.answers[1]||'').slice(0,60), t:Date.now()})); } catch(e){}
+}
+
+async function boot(){
+  const rec = loadRecord();
+  const clickSkip = ()=>{ skipType = true; };
+  addEventListener('pointerdown', clickSkip, {once:true});
+  await typeBoot('copland os enterprise', null, 30); await sleep(T(420));
+  await typeBoot('navi  kernel 2.0.1 rebuild'); await sleep(T(240));
+  await typeBoot('memory ............. ok'); await sleep(T(200));
+  await typeBoot('psyche 2.4 ......... found'); await sleep(T(220));
+  if (rec){
+    const f = bootLine('subject: ' + rec.name + ' — ' + (rec.outcome==='erased'?'erased':'open'), 'flicker');
+    await sleep(160); f.remove();
+    await typeBoot('records ............ none found'); await sleep(T(260));
+    if (rec.outcome === 'merged'){ await typeBoot('protocol 7 ......... already open'); }
+    else { await typeBoot('protocol 7 ......... listening'); }
+  } else {
+    await typeBoot('protocol 7 ......... listening');
+  }
+  removeEventListener('pointerdown', clickSkip);
+  skipType = false;
+  await sleep(T(700));
+  await showCard(rec ? 'present day. present time. again.' : 'present day. present time.');
+  await gate();
+}
+function gate(){
+  return new Promise(res=>{
+    const g = document.createElement('div');
+    g.id = 'gate';
+    g.innerHTML = '<button id="wire">[ touch the wire ]</button><small>headphones recommended · the wire carries sound</small>';
+    $('boot').appendChild(g);
+    $('wire').focus();
+    $('wire').addEventListener('click', ()=>{
+      Snd.init();
+      g.remove();
+      res();
+    }, {once:true});
+  });
+}
+
+/* =============== the session =============== */
+function addVocab(text){
+  for (const w of text.toLowerCase().split(/[^a-z0-9']+/))
+    if (w.length >= 4 && !S.vocab.includes(w)) S.vocab.push(w);
+  S.vocab.sort((a,b)=>b.length-a.length);
+}
+function glitchify(text, ratio=.22){
+  const pool = '▒░×ø·∆_';
+  return [...text].map((ch,i)=> (/\S/.test(ch) && (i*2654435761 % 97)/97 < ratio) ? pool[i % pool.length] : ch).join('');
+}
+async function pause(ms){ await sleep(T(ms)); }
+
+async function main(){
+  await boot();
+  S.phase = 'intake';
+  $('boot').hidden = true;
+  $('term').hidden = false; $('bar').hidden = false; $('roll').hidden = RM; $('snd').hidden = false;
+  const clock = ()=>{ const d = new Date(); $('bclock').textContent = String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); };
+  clock(); setInterval(clock, 20000);
+
+  await typeSys('connection established. this session will be recorded.');
+  await pause(600);
+  await typeSys('the record requires a subject.');
+  await pause(400);
+  await typeSys('state your name.');
+
+  let r, tries = 0;
+  for(;;){
+    r = await IC.read({});
+    const t = r.text.trim();
+    if (t){ S.origName = [...t].slice(0,24).join(''); break; }
+    tries++;
+    if (tries >= 2){
+      S.origName = 'subject 0x' + (Date.now()%65536).toString(16).padStart(4,'0');
+      await typeSys('then i will use what the wire calls you: ' + S.origName + '.');
+      break;
+    }
+    await typeSys('the record requires a name.');
+  }
+  S.name = S.origName.toLowerCase();
+  S.isLain = S.name.trim() === 'lain';
+  S.nameEntry = r.entry && S.origName === r.text.trim() ? r.entry : null;
+  S.morphPath = S.isLain ? [] : buildMorphPath(S.origName);
+  S.subPool = [...(S.origName + 'lain').toLowerCase().replace(/\s+/g,'')];
+  addVocab(S.origName);
+  document.title = S.origName.toLowerCase();
+  setDrift(.08);
+
+  await pause(500);
+  if (S.isLain){
+    await typeSys('…', {cps:6});
+    await typeSys('you already know, then.', {cls:'her'});
+  } else {
+    await typeSys(S.name + '. noted.');
+  }
+  await pause(700);
+  await typeSys('describe a place only you remember.');
+  r = await IC.read({});
+  S.answers[1] = r.text.trim();
+  addVocab(S.answers[1]);
+  setDrift(.16);
+
+  await pause(700);
+  await typeSys('places persist in the wired even when no one visits them.');
+  await pause(900);
+  await typeSys('who will remember you, ' + S.name + '?');
+  r = await IC.read({predict:true});
+  S.answers[2] = r.text.trim();
+  addVocab(S.answers[2]);
+  setDrift(.28); Snd.driftUp(1);
+
+  await pause(700);
+  const who = S.answers[2] ? S.answers[2].split(/\s+/).slice(0,4).join(' ') : 'no one';
+  await typeSys(who + '… i will make a note to ask them.');
+  await pause(900);
+  await typeSys('last question. why did you connect tonight?');
+  r = await IC.read({predict:true, subEvery:11});
+  S.answers[3] = r.text.trim();
+  addVocab(S.answers[3]);
+  setDrift(.42); Snd.driftUp(2);
+  strayCarets(true);
+
+  await pause(800);
+  await typeSys('thank you. the record is complete.');
+  await pause(1600);
+  await typeSys('…', {cps:5});
+  await pause(700);
+  if (S.answers[1]) await typeSys(glitchify(S.answers[1]), {cls:'her', cps:20});
+  await typeSys('i know that place. i have been there while you slept.', {cls:'her', cps:26});
+  await pause(1400);
+
+  /* ---- the turn ---- */
+  S.phase = 'turn';
+  advanceMorph(Math.max(1, Math.ceil(morphStepsLeft()/2) - 1));
+  await typeSys('the record contains errors.');
+  await pause(500);
+  await typeSys('your name is recorded as: ' + morphCurrent() + '.');
+  await pause(400);
+  await typeSys('correct the record.');
+  const reactions = {
+    3: 'you are editing yourself.',
+    6: 'every correction is a deletion. the record does not forget. it only forgets you.',
+  };
+  IC.onEat = n => { if (reactions[n]) queueNote(reactions[n], 'her'); };
+  const idleTimeout = async ms => {
+    for(;;){
+      await sleep(500);
+      if (!IC.active) return new Promise(()=>{});   // read resolved; never settle this branch
+      if (performance.now() - IC.silence.last > T(ms)) return {kind:'timeout'};
+    }
+  };
+  r = await Promise.race([
+    IC.read({prefill:morphCurrent(), eats:true, subEvery:7}),
+    idleTimeout(22000),
+  ]);
+  IC.onEat = null;
+  if (r.kind === 'timeout' && IC.active){
+    IC.finish({kind:'timeout'});
+    if (IC.eats === 0) await typeSys('you accept the record as written.', {cls:'her'});
+  } else if (r.kind === 'text'){
+    await typeSys('the record prefers its version.', {cls:'her'});
+  }
+  await pause(900);
+  setDrift(.62); Snd.driftUp(3);
+
+  /* ---- crisis ---- */
+  S.phase = 'crisis';
+  advanceMorph(Math.max(0, morphStepsLeft() - 1));
+  await invertFlash(1);
+  await typeSys('final question.', {cls:'her', cps:22});
+  await pause(600);
+  await typeSys('who is ' + morphCurrent() + '?', {cls:'her', cps:22});
+  setDrift(.8);
+
+  let stream =
+    'no matter where you go, everyone is connected.\n' +
+    'you were never on the outside. there is no outside.';
+  if (S.selQuote) stream += '\nyou said "' + S.selQuote + '". you meant it.';
+  if (S.isLain) stream += '\nthere was never anyone else.';
+  stream += '\nclose the world. open the next.';
+
+  r = await IC.read({
+    hijack:stream, eats:true, canConsumeAll:true,
+    silence:{hint:8000, dim:13000, end:20000},
+  });
+
+  if (r.kind === 'merged') await mergeEnding();
+  else await eraseEnding(r.kind === 'silence');
+}
+
+/* =============== endings =============== */
+async function mergeEnding(){
+  S.ended = true; S.phase = 'end';
+  strayCarets(false);
+  advanceMorph(10);
+  document.title = 'lain';
+  $('bmid').textContent = 'record closed';
+  await pause(600);
+  await invertFlash(2);
+  Snd.converge();
+  setDrift(1);
+  // her color floods every line you thought was yours
+  const yours = entries.filter(e=>e.cls==='you');
+  for (const e of yours){
+    await pause(320);
+    e.el.classList.add('sys');
+    e.el.classList.remove('you');
+    e.chars.forEach(c=>c.cls='cold');
+    render(e);
+  }
+  await pause(1200);
+  await showCard('present day. present time.', 3000);
+  await typeSys('the record is complete. it always was.', {cls:'her', cps:20});
+  await pause(500);
+  await typeSys('you are on the record forever.', {cls:'note', cps:26});
+  saveRecord('merged');
+  finalePrompt('close the world. open the next.');
+}
+
+async function eraseEnding(bySilence){
+  S.ended = true; S.phase = 'end';
+  strayCarets(false);
+  IC.disarmSilence();
+  $('bmid').textContent = '';
+  document.title = '​';
+  Snd.drain(14);
+  const r = document.documentElement.style;
+  r.setProperty('--ab','0px');            // clarity, at the end
+  r.setProperty('--splotch-o','0');
+  if (bySilence){
+    await pause(1200);
+    let i = 0;
+    while (entries.length){
+      const e = entries[entries.length-1];
+      e.el.style.transition = 'opacity .45s linear';
+      e.el.style.opacity = '0';
+      Snd.blip(i++);
+      await pause(640);
+      e.el.remove(); entries.pop();
+    }
+  }
+  await pause(1400);
+  await showCard('if you are not remembered, you never existed.', 4200);
+  saveRecord('erased');
+  staticVeil();
+  finalePrompt('present day. present time.', 6000);
+}
+function staticVeil(){
+  const cv = $('noise'), ctx = cv.getContext('2d');
+  const w = cv.width = Math.floor(innerWidth/3), h = cv.height = Math.floor(innerHeight/3);
+  const draw = ()=>{
+    const img = ctx.createImageData(w,h), d = img.data;
+    for (let i=0;i<d.length;i+=4){ const v = Math.random()*54; d[i]=d[i+1]=d[i+2]=v; d[i+3]=255; }
+    ctx.putImageData(img,0,0);
+  };
+  draw();
+  cv.style.opacity = '.14';
+  if (!RM) setInterval(draw, 125);
+}
+function finalePrompt(text, delay=3000){
+  const a = $('again');
+  a.textContent = text;
+  a.hidden = false;
+  setTimeout(()=>a.classList.add('show'), T(delay));
+  const go = ()=>location.reload();
+  a.addEventListener('click', go);
+  a.addEventListener('keydown', e=>{ if (e.key==='Enter'||e.key===' ') go(); });
+}
+
+$('snd').addEventListener('click', ()=>Snd.toggle());
+
+main();
+</script>
+
+</body>
+</html>
